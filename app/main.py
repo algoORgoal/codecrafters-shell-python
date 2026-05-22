@@ -1,4 +1,8 @@
+import os
 import sys
+from os import environ
+from os import pathsep
+from os import access
 
 
 def main():
@@ -32,8 +36,26 @@ def echo(text):
 def type(text, built_ins):
     if text in built_ins:
         print(f"{text} is a shell builtin")
-    else:
-        print(f"{text}: not found")
+        return
+
+    if search_for_executables(text) == True:
+        return
+
+    print(f"{text}: not found")
+
+
+def search_for_executables(command_name):
+    PATH = environ.get("PATH")
+    if PATH is None:
+        return False
+
+    directories = PATH.split(pathsep)
+    for directory in directories:
+        path = directory + "/" + command_name
+        if access(path, os.X_OK) == True:
+            print(f"{command_name} is {path}")
+            return True
+    return False
 
 
 if __name__ == "__main__":
