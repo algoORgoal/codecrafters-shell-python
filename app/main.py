@@ -89,7 +89,11 @@ def pwd(args):
 
 
 def cd(args):
-    directory = args[0]
+    directory: str = args[0]
+    if directory.startswith('~'):
+        home_directory = os.environ.get('HOME')
+        os.chdir(home_directory)
+        return
 
     if os.path.isdir(directory) == False:
         print(f"cd: {directory}: No such file or directory")
