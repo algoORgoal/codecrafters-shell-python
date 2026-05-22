@@ -12,6 +12,7 @@ def main():
         'ECHO': 'echo',
         'TYPE': 'type',
         "PWD": 'pwd',
+        "CD": 'cd',
     }
 
     while True:
@@ -33,6 +34,10 @@ def main():
 
         if command_name == SHELL_BUILTIN_DICT['PWD']:
             pwd(args)
+            continue
+
+        if command_name == SHELL_BUILTIN_DICT['CD']:
+            cd(args)
             continue
 
         executable_path = find_executable_path(command_name)
@@ -81,6 +86,16 @@ def run_executable(command_name, args):
 
 def pwd(args):
     print(os.getcwd())
+
+
+def cd(args):
+    absolute_directory = args[0]
+
+    if os.path.isdir(absolute_directory) == False:
+        print(f"cd: {absolute_directory}: No such file or directory")
+        return
+
+    os.chdir(absolute_directory)
 
 
 if __name__ == "__main__":
