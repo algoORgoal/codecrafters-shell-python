@@ -4,12 +4,21 @@ import sys
 def main():
     sys.stdout.write("$ ")
     command = input()
-    command_name = command.split()[0]
+    parts = command.split()
+    command_name, rest = parts[0], parts[1:]
 
-    if command_name == "exit":
+    SHELL_BUILTIN_DICT = {
+        'EXIT': 'exit',
+        'ECHO': 'echo',
+        'TYPE': 'type',
+    }
+
+    if command_name == SHELL_BUILTIN_DICT['EXIT']:
         return
-    elif command_name == "echo":
-        echo(command)
+    elif command_name == SHELL_BUILTIN_DICT['ECHO']:
+        echo(' '.join(rest))
+    elif command_name == SHELL_BUILTIN_DICT['TYPE']:
+        type(' '.join(rest), set(SHELL_BUILTIN_DICT.values()))
     else:
         print(f"{command}: command not found")
 
@@ -17,18 +26,14 @@ def main():
 
 
 def echo(text):
-    command_name = "echo"
-    if text.startswith(command_name):
-        echo(text[len(command_name):])
-        return
-
-    space = " "
-
-    if text.startswith(space):
-        echo(text[len(space):])
-        return
-
     print(text)
+
+
+def type(text, built_ins):
+    if text in built_ins:
+        print(f"{text} is a shell builtin")
+    else:
+        print(f"{text}: not found")
 
 
 if __name__ == "__main__":
