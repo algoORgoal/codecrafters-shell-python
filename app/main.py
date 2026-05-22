@@ -11,6 +11,7 @@ def main():
         'EXIT': 'exit',
         'ECHO': 'echo',
         'TYPE': 'type',
+        "PWD": 'pwd',
     }
 
     while True:
@@ -28,6 +29,10 @@ def main():
 
         if command_name == SHELL_BUILTIN_DICT['TYPE']:
             type(args, set(SHELL_BUILTIN_DICT.values()))
+            continue
+
+        if command_name == SHELL_BUILTIN_DICT['PWD']:
+            pwd(args)
             continue
 
         executable_path = find_executable_path(command_name)
@@ -72,6 +77,10 @@ def type(args, built_ins):
 
 def run_executable(command_name, args):
     subprocess.run([command_name] + args)
+
+
+def pwd(args):
+    print(os.getcwd())
 
 
 if __name__ == "__main__":
