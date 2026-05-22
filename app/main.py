@@ -89,13 +89,13 @@ def pwd(args):
 
 
 def cd(args):
-    absolute_directory = args[0]
+    directory = args[0]
 
-    if os.path.isdir(absolute_directory) == False:
-        print(f"cd: {absolute_directory}: No such file or directory")
+    if os.path.isdir(directory) == False:
+        print(f"cd: {directory}: No such file or directory")
         return
 
-    os.chdir(absolute_directory)
+    os.chdir(directory)
 
 
 if __name__ == "__main__":
