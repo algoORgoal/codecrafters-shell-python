@@ -3,59 +3,75 @@ import sys
 from os import environ
 from os import pathsep
 from os import access
+import subprocess
 
 
 def main():
-    sys.stdout.write("$ ")
-    command = input()
-    parts = command.split()
-    command_name, rest = parts[0], parts[1:]
-
     SHELL_BUILTIN_DICT = {
         'EXIT': 'exit',
         'ECHO': 'echo',
         'TYPE': 'type',
     }
 
-    if command_name == SHELL_BUILTIN_DICT['EXIT']:
-        return
-    elif command_name == SHELL_BUILTIN_DICT['ECHO']:
-        echo(' '.join(rest))
-    elif command_name == SHELL_BUILTIN_DICT['TYPE']:
-        type(' '.join(rest), set(SHELL_BUILTIN_DICT.values()))
-    else:
+    while True:
+        sys.stdout.write("$ ")
+        command = input()
+        parts = command.split()
+        command_name, args = parts[0], parts[1:]
+
+        if command_name == SHELL_BUILTIN_DICT['EXIT']:
+            break
+
+        if command_name == SHELL_BUILTIN_DICT['ECHO']:
+            echo(args)
+            continue
+
+        if command_name == SHELL_BUILTIN_DICT['TYPE']:
+            type(args, set(SHELL_BUILTIN_DICT.values()))
+            continue
+
+        executable_path = find_executable_path(command_name)
+        if executable_path is not None:
+            run_executable(command_name, args)
+            continue
+
         print(f"{command}: command not found")
 
-    main()
+
+def echo(args):
+    print(' '.join(args))
 
 
-def echo(text):
-    print(text)
-
-
-def type(text, built_ins):
-    if text in built_ins:
-        print(f"{text} is a shell builtin")
-        return
-
-    if search_for_executables(text) == True:
-        return
-
-    print(f"{text}: not found")
-
-
-def search_for_executables(command_name):
+def find_executable_path(command_name):
     PATH = environ.get("PATH")
     if PATH is None:
-        return False
+        return None
 
     directories = PATH.split(pathsep)
     for directory in directories:
         path = directory + "/" + command_name
         if access(path, os.X_OK) == True:
-            print(f"{command_name} is {path}")
-            return True
-    return False
+            return path
+
+    return None
+
+
+def type(args, built_ins):
+    text = ' '.join(args)
+    if text in built_ins:
+        print(f"{text} is a shell builtin")
+        return
+
+    executable_path = find_executable_path(text)
+    if executable_path is not None:
+        print(f"{text} is {executable_path}")
+        return
+
+    print(f"{text}: not found")
+
+
+def run_executable(command_name, args):
+    subprocess.run([command_name] + args)
 
 
 if __name__ == "__main__":
