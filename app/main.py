@@ -5,7 +5,6 @@ from os import pathsep
 from os import access
 import subprocess
 from collections import deque
-import re
 
 # 1. stack is empty and character is ' => push
 # 2. stack is empty and character is space 
@@ -101,12 +100,19 @@ def echo(args):
 def parse_arguments(string):
     args = []
     in_single_quote = False
+    in_double_quote = False
     token = ""
 
     for char in string:
+    
         if in_single_quote == True:
             if char == "'":
                 in_single_quote = False
+            else:
+                token += char
+        elif in_double_quote == True:
+            if char == '"':
+                in_double_quote = False
             else:
                 token += char
         else:
@@ -116,6 +122,8 @@ def parse_arguments(string):
                     token = ""
             elif char == "'":
                 in_single_quote = True
+            elif char == '"':
+                in_double_quote = True
             else:
                 token += char
     
@@ -123,22 +131,8 @@ def parse_arguments(string):
     if token != "":
         args.append(token)
 
-    
-    
     return args
 
-            
-            
-                
-        
-
-    if len(stack) > 0:
-        args.append(''.join(stack).strip("'"))
-
-    return args
-    
-    
-    
     
 
     
