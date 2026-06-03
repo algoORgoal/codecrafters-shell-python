@@ -101,11 +101,15 @@ def parse_arguments(string):
     args = []
     in_single_quote = False
     in_double_quote = False
-    should_treat_literally = False
+    should_escape = False
     token = ""
 
     for char in string:
-        if in_single_quote == True:
+        if should_escape == True:
+            token += char
+            should_escape = False     
+
+        elif in_single_quote == True:
             if char == "'":
                 in_single_quote = False
             else:
@@ -113,14 +117,12 @@ def parse_arguments(string):
         elif in_double_quote == True:
             if char == '"':
                 in_double_quote = False
+            elif char in ['"', '\\', '$', '`',]:
+                should_escape = True
             else:
                 token += char
         else:
-
-            if should_treat_literally == True:
-                token += char
-                should_treat_literally = False                
-            elif char == " ":
+            if char == " ":
                 if token != "":
                     args.append(token)
                     token = ""
@@ -129,7 +131,7 @@ def parse_arguments(string):
             elif char == '"':
                 in_double_quote = True
             elif char == "\\":
-                should_treat_literally = True
+                should_escape = True
             else:
                 token += char
     
