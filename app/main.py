@@ -101,10 +101,10 @@ def parse_arguments(string):
     args = []
     in_single_quote = False
     in_double_quote = False
+    should_treat_literally = False
     token = ""
 
     for char in string:
-    
         if in_single_quote == True:
             if char == "'":
                 in_single_quote = False
@@ -116,7 +116,11 @@ def parse_arguments(string):
             else:
                 token += char
         else:
-            if char == " ":
+
+            if should_treat_literally == True:
+                token += char
+                should_treat_literally = False                
+            elif char == " ":
                 if token != "":
                     args.append(token)
                     token = ""
@@ -124,6 +128,8 @@ def parse_arguments(string):
                 in_single_quote = True
             elif char == '"':
                 in_double_quote = True
+            elif char == "\\":
+                should_treat_literally = True
             else:
                 token += char
     
