@@ -55,15 +55,10 @@ def main():
     while True:
         sys.stdout.write("$ ")
         command = input()
-        end_index = command.find(" ")
-
-        if end_index == -1:
-            command_name = command
-            args = []
-        else:
-            command_name = command[:end_index]
-            text = command[end_index:].strip()
-            args = parse_arguments(text)
+            
+        tokens = parse_command(command)
+        command_name, args = tokens[0], tokens[1:]
+            
 
         if command_name == SHELL_BUILTIN_DICT['EXIT']:
             break
@@ -97,7 +92,7 @@ def echo(args):
 
 
 
-def parse_arguments(string):
+def parse_command(string):
     args = []
     in_single_quote = False
     in_double_quote = False
