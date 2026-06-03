@@ -4,7 +4,45 @@ from os import environ
 from os import pathsep
 from os import access
 import subprocess
+from collections import deque
+import re
 
+# 1. stack is empty and character is ' => push
+# 2. stack is empty and character is space 
+
+# 'hello   world' => 'hello   world'
+# hello   world => hello   world
+# hello   'world' => hello world
+# hello'world' => helloworld
+# hello'world'hello => helloworldhello
+# ' => 시작
+# ' => 종료
+# quote 안에 들어있지 않은 space => 무시
+
+# abc'hello'world
+# 1. len(stack) == 0 and space => 갖다 버림
+
+
+# 'hello world'
+
+# echo를 제외한 다른 명령어의 경우에는
+# args= [ result for result in results if result != ' ']
+# 를 넣으면 되지 않냐?
+
+# echo 'hello  /'  world' hello world
+
+# 'abc'
+
+# 1. stack에 뭐가 들어있음
+# 2. stack의 bottom에 quote가 있음
+
+# abc'def'
+
+# 1. stack에 뭐가 들어있는 상태
+# 2. stack의 bottom에 quote가 없음
+
+# abc'def' 'ghi'
+# ['abcdef', 'ghi']
 
 def main():
     SHELL_BUILTIN_DICT = {
@@ -18,8 +56,15 @@ def main():
     while True:
         sys.stdout.write("$ ")
         command = input()
-        parts = command.split()
-        command_name, args = parts[0], parts[1:]
+        end_index = command.find(" ")
+
+        if end_index == -1:
+            command_name = command
+            args = []
+        else:
+            command_name = command[:end_index]
+            text = command[end_index:].strip()
+            args = parse_arguments(text)
 
         if command_name == SHELL_BUILTIN_DICT['EXIT']:
             break
@@ -50,6 +95,69 @@ def main():
 
 def echo(args):
     print(' '.join(args))
+
+
+
+def parse_arguments(string):
+    args = []
+    in_single_quote = False
+    token = ""
+
+    for char in string:
+        if in_single_quote == True:
+            if char == "'":
+                in_single_quote = False
+            else:
+                token += char
+        else:
+            if char == " ":
+                if token != "":
+                    args.append(token)
+                    token = ""
+            elif char == "'":
+                in_single_quote = True
+            else:
+                token += char
+    
+    
+    if token != "":
+        args.append(token)
+
+    
+    
+    return args
+
+            
+            
+                
+        
+
+    if len(stack) > 0:
+        args.append(''.join(stack).strip("'"))
+
+    return args
+    
+    
+    
+    
+
+    
+
+
+# echo 'hello      world' => hello      world
+# echo hello      world => hello world
+# echo 'hello''world' => helloworld
+# echo hello''world => helloworld
+
+# def parse_arguments(string: str):
+#     stack = []
+#     for char in string:
+#         if len(stack) == 0:
+#             if char == ' ':
+#                 continue
+#             else:
+#                 stack.append(char)
+#         else:
 
 
 def find_executable_path(command_name):
@@ -89,18 +197,91 @@ def pwd(args):
 
 
 def cd(args):
-    directory: str = args[0]
-    if directory.startswith('~'):
+    directory_path: str = args[0]
+    
+    if directory_path[0] == '/': # already absolute directory
+        absolute_path = directory_path
+    else: # relative directory
+        path_segments = directory_path.strip('/').split('/')
+        absolute_path = resolve_to_absolute_path(os.getcwd(), deque(path_segments))
+
+    if os.path.isdir(absolute_path) == False:
+        print(f"cd: {directory_path}: No such file or directory")
+        return
+
+    os.chdir(absolute_path)
+
+
+# split path into path segments
+# if the path segment is working directory => return current
+# if the path semgent is parent => return parent
+# if the path segment is a directory
+# if current is None and the path segment is PARENT => pwd + parent
+
+def resolve_to_absolute_path(current, path_segments):
+    if len(path_segments) == 0:
+        return current
+
+    path_segment = path_segments.popleft() 
+
+    DIRECTORY_ALIAS = {
+        'WORKING': '.',
+        'PARENT': '..',
+        'HOME': '~',
+    }
+
+    if path_segment == DIRECTORY_ALIAS['WORKING']:
+        absolute_path = current
+    elif path_segment == DIRECTORY_ALIAS['PARENT']:
+        parent_directory = os.path.dirname(current)
+        absolute_path = parent_directory
+    elif path_segment == DIRECTORY_ALIAS['HOME']:
         home_directory = os.environ.get('HOME')
-        os.chdir(home_directory)
-        return
+        absolute_path = home_directory
+    else:
+        absolute_path = current + '/' + path_segment
 
-    if os.path.isdir(directory) == False:
-        print(f"cd: {directory}: No such file or directory")
-        return
-
-    os.chdir(directory)
+    return resolve_to_absolute_path(absolute_path, path_segments)
 
 
 if __name__ == "__main__":
     main()
+
+
+# 문제: path가 /로 시작하는 경우 root directory에서 시작한다.
+#      path가 /로 시작하지 않는 경우 current working directory에서 시작한다.
+# 해결방안: path가 /로 시작하는 경우 이미 절대경로이다.
+#         path가 /로 시작하는 경우에만 상대경로이고, 이를 절대경로로 변환한다.
+
+
+# single quotes
+# 'hello  world' => single quote string literal is considered a single argument,
+# while prevsing whitespaces.
+# 'hello' world' quoted strings are considered as a single argument
+# hello '' world => empty quotes are ignored
+
+# stack으로 쉽게 해결이 안 된다
+# state machine으로 해결해야 한다.
+# single quote 안에 있다 => in_single_quote = True
+# single quote 안에 있는 상태가 아니다 => in_single_quote = False
+# 
+# while char in string:
+#  if in_single_quote == False and char == " ":
+#    if token != "":
+#      args.append(token)
+#      token = ""
+#  elif in_single_quote == False and char == "'":
+#    in_single_quote = True
+#    token += char
+#  elif in_single_quote == False:
+#    token += char
+#  elif in_single_quote == True and char == "'":
+#    in_single_quote = False
+#    args.append(token)
+#    token = ""
+#  else:
+#    token += char
+#  
+
+#    
+#  if in
