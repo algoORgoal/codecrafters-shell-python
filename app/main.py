@@ -59,8 +59,8 @@ def main():
         command_line = input()
         should_redirect = check_should_redirect(command_line)
 
-        if should_redirect == True:
-            command, filename = parse_redirection(command_line)
+        
+        command, filename = parse_redirection(command_line)
 
         tokens = parse_command(command)
         command_name, args = tokens[0], tokens[1:]
