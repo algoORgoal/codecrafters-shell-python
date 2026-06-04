@@ -43,14 +43,18 @@ from collections import deque
 # abc'def' 'ghi'
 # ['abcdef', 'ghi']
 
+SHELL_BUILTIN_DICT = {
+    'EXIT': 'exit',
+    'ECHO': 'echo',
+    'TYPE': 'type',
+    "PWD": 'pwd',
+    "CD": 'cd',
+}
+
+EMPTY_STRING = ""
+
 def main():
-    SHELL_BUILTIN_DICT = {
-        'EXIT': 'exit',
-        'ECHO': 'echo',
-        'TYPE': 'type',
-        "PWD": 'pwd',
-        "CD": 'cd',
-    }
+    
 
     while True:
         sys.stdout.write("$ ")
@@ -135,7 +139,7 @@ def parse_command(string):
     in_single_quote = False
     in_double_quote = False
     should_escape = False
-    token = ""
+    token = EMPTY_STRING
 
     for char in string:
         if should_escape == True:
@@ -156,9 +160,9 @@ def parse_command(string):
                 token += char
         else:
             if char == " ":
-                if token != "":
+                if token != EMPTY_STRING:
                     tokens.append(token)
-                    token = ""
+                    token = EMPTY_STRING
             elif char == "'":
                 in_single_quote = True
             elif char == '"':
@@ -169,7 +173,7 @@ def parse_command(string):
                 token += char
     
     
-    if token != "":
+    if token != EMPTY_STRING:
         tokens.append(token)
 
     return tokens
