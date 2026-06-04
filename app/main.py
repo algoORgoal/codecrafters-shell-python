@@ -55,45 +55,83 @@ def main():
     while True:
         sys.stdout.write("$ ")
         command = input()
-            
+
+        if " > " in command:
+            subcommand, filename = command.split(" > ")
+            command = subcommand
+            should_redirect = True
+        elif " 1> " in command:
+            subcommand, filename = command.split(" 1> ")
+            command = subcommand
+            should_redirect = True
+        else:
+            should_redirect = False
+        
         tokens = parse_command(command)
         command_name, args = tokens[0], tokens[1:]
-            
 
         if command_name == SHELL_BUILTIN_DICT['EXIT']:
             break
 
         if command_name == SHELL_BUILTIN_DICT['ECHO']:
-            echo(args)
+            output = echo(args)
+            if should_redirect == True:
+                with open(filename, "w") as f:
+                    print(output, file=f)
+            else:
+                print(output)
+            
             continue
 
         if command_name == SHELL_BUILTIN_DICT['TYPE']:
-            type(args, set(SHELL_BUILTIN_DICT.values()))
+            output = type(args, set(SHELL_BUILTIN_DICT.values()))
+            if should_redirect == True:
+                with open(filename, "w") as f:
+                    print(output, file=f)
+            else:
+                print(output)
+                
             continue
 
         if command_name == SHELL_BUILTIN_DICT['PWD']:
-            pwd(args)
+            output = pwd(args)
+            if should_redirect == True:
+                with open(filename, "w") as f:
+                    print(output, file=f)
+            else:
+                print(output)
+                
             continue
 
         if command_name == SHELL_BUILTIN_DICT['CD']:
             cd(args)
+            if should_redirect == True:
+                with open(filename, "w") as f:
+                    print(output, file=f)
+            
             continue
-
+        
         executable_path = find_executable_path(command_name)
         if executable_path is not None:
-            run_executable(command_name, args)
+            if should_redirect == True:
+                with open(filename, "w") as f:
+                    run_executable(command_name, args, f)
+            else:
+                run_executable(command_name, args)
+
             continue
+
 
         print(f"{command}: command not found")
 
 
 def echo(args):
-    print(' '.join(args))
+    return ' '.join(args)
 
 
 
 def parse_command(string):
-    args = []
+    tokens = []
     in_single_quote = False
     in_double_quote = False
     should_escape = False
@@ -119,7 +157,7 @@ def parse_command(string):
         else:
             if char == " ":
                 if token != "":
-                    args.append(token)
+                    tokens.append(token)
                     token = ""
             elif char == "'":
                 in_single_quote = True
@@ -132,10 +170,11 @@ def parse_command(string):
     
     
     if token != "":
-        args.append(token)
+        tokens.append(token)
 
-    return args
+    return tokens
 
+        
     
 
     
@@ -174,23 +213,21 @@ def find_executable_path(command_name):
 def type(args, built_ins):
     text = ' '.join(args)
     if text in built_ins:
-        print(f"{text} is a shell builtin")
-        return
+        return f"{text} is a shell builtin"
 
     executable_path = find_executable_path(text)
     if executable_path is not None:
-        print(f"{text} is {executable_path}")
-        return
+        return f"{text} is {executable_path}"
 
-    print(f"{text}: not found")
+    return f"{text}: not found"
 
 
-def run_executable(command_name, args):
-    subprocess.run([command_name] + args)
+def run_executable(command_name, args, stdout = None):
+    subprocess.run([command_name] + args, stdout=stdout)
 
 
 def pwd(args):
-    print(os.getcwd())
+    return os.getcwd()
 
 
 def cd(args):
@@ -205,7 +242,7 @@ def cd(args):
     if os.path.isdir(absolute_path) == False:
         print(f"cd: {directory_path}: No such file or directory")
         return
-
+        
     os.chdir(absolute_path)
 
 
@@ -282,3 +319,21 @@ if __name__ == "__main__":
 
 #    
 #  if in
+
+
+# 1. " > "이 command 안에 있는지 확인
+# 2. 안에 있으면 " > " 기준으로 명령어 쪼개기
+# 3. 첫번째 파트 명령어 수행
+# 4. 첫번째 파트 명령어의 수행 결과를, 출력하는 대신에 output.txt에 저장
+
+# 문제: custom cli에 대해서도 >를 분리하도록 처리를 해버린다.
+# 해결방안: custom cli는 따로 파싱하도록 분기 처리한다.
+
+# 문제: subprocess.run에 >를 인자로 줬을 때 special character로 해석되지 않는다.
+# 해결방법: 표준 출력을 파일로 연결한다.
+
+# 문제: subprocess.run의 매개변수 전달방식이 잘못되었다.
+# 해결방법: subprocess.run(command, stdout=stdout)으로 키워드 인자로 설정해준다.
+
+# 문제: file.write은 \n문제를 자동으로 붙이지 않음
+# 해결방법: print(string, file=f)를 f.write() 대신 사용한다.
