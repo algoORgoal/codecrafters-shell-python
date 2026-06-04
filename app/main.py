@@ -59,17 +59,9 @@ def main():
     while True:
         sys.stdout.write("$ ")
         command = input()
-
-        if " > " in command:
-            subcommand, filename = command.split(" > ")
-            command = subcommand
-            should_redirect = True
-        elif " 1> " in command:
-            subcommand, filename = command.split(" 1> ")
-            command = subcommand
-            should_redirect = True
-        else:
-            should_redirect = False
+        
+        if check_should_redirect(command) == True:
+            command, filename = parse_redirection(command)
         
         tokens = parse_command(command)
         command_name, args = tokens[0], tokens[1:]
@@ -77,47 +69,17 @@ def main():
         if command_name == SHELL_BUILTIN_DICT['EXIT']:
             break
 
-        if command_name == SHELL_BUILTIN_DICT['ECHO']:
-            output = echo(args)
-            if should_redirect == True:
+        if command_name in SHELL_BUILTIN_DICT.values():
+            output = run_builtin_command(command_name, args)
+            if check_should_redirect(command) == True:
                 with open(filename, "w") as f:
-                    print(output, file=f)
+                    print(output if output is not None else "", file=f)
             else:
                 print(output)
-            
-            continue
-
-        if command_name == SHELL_BUILTIN_DICT['TYPE']:
-            output = type(args, set(SHELL_BUILTIN_DICT.values()))
-            if should_redirect == True:
-                with open(filename, "w") as f:
-                    print(output, file=f)
-            else:
-                print(output)
-                
-            continue
-
-        if command_name == SHELL_BUILTIN_DICT['PWD']:
-            output = pwd(args)
-            if should_redirect == True:
-                with open(filename, "w") as f:
-                    print(output, file=f)
-            else:
-                print(output)
-                
-            continue
-
-        if command_name == SHELL_BUILTIN_DICT['CD']:
-            cd(args)
-            if should_redirect == True:
-                with open(filename, "w") as f:
-                    print(output, file=f)
-            
-            continue
         
         executable_path = find_executable_path(command_name)
         if executable_path is not None:
-            if should_redirect == True:
+            if check_should_redirect(command) == True:
                 with open(filename, "w") as f:
                     run_executable(command_name, args, f)
             else:
@@ -127,6 +89,38 @@ def main():
 
 
         print(f"{command}: command not found")
+
+def run_builtin_command(command_name, args):
+    if command_name == SHELL_BUILTIN_DICT['ECHO']:
+        output = echo(args)
+        return output
+            
+    if command_name == SHELL_BUILTIN_DICT['TYPE']:
+        output = type(args, set(SHELL_BUILTIN_DICT.values()))
+        return output
+
+    if command_name == SHELL_BUILTIN_DICT['PWD']:
+        output = pwd(args)
+        return output
+
+    if command_name == SHELL_BUILTIN_DICT['CD']:
+        cd(args)
+        return None
+
+
+def check_should_redirect(command):
+    return " > " in command or " 1> " in command
+
+
+def parse_redirection(command):
+    if " > " in command:
+        subcommand, filename = command.split(" > ")
+        return subcommand, filename
+    if " 1> " in command:
+        subcommand, filename = command.split(" 1> ")
+        return subcommand, filename
+    
+    return command, None
 
 
 def echo(args):
