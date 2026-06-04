@@ -77,6 +77,8 @@ def main():
                     print(output if output is not None else "", file=f)
             else:
                 print(output)
+            
+            continue
         
         executable_path = find_executable_path(command_name)
         if executable_path is not None:
