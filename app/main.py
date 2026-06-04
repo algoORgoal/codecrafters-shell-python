@@ -58,11 +58,12 @@ def main():
 
     while True:
         sys.stdout.write("$ ")
-        command = input()
-        
-        if check_should_redirect(command) == True:
-            command, filename = parse_redirection(command)
-        
+        command_line = input()
+        should_redirect = check_should_redirect(command_line)
+
+        if should_redirect == True:
+            command, filename = parse_redirection(command_line)
+
         tokens = parse_command(command)
         command_name, args = tokens[0], tokens[1:]
 
@@ -71,7 +72,7 @@ def main():
 
         if command_name in SHELL_BUILTIN_DICT.values():
             output = run_builtin_command(command_name, args)
-            if check_should_redirect(command) == True:
+            if should_redirect:
                 with open(filename, "w") as f:
                     print(output if output is not None else "", file=f)
             else:
@@ -79,7 +80,7 @@ def main():
         
         executable_path = find_executable_path(command_name)
         if executable_path is not None:
-            if check_should_redirect(command) == True:
+            if should_redirect:
                 with open(filename, "w") as f:
                     run_executable(command_name, args, f)
             else:
@@ -116,6 +117,7 @@ def parse_redirection(command):
     if " > " in command:
         subcommand, filename = command.split(" > ")
         return subcommand, filename
+
     if " 1> " in command:
         subcommand, filename = command.split(" 1> ")
         return subcommand, filename
