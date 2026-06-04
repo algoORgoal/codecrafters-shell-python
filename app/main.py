@@ -236,7 +236,7 @@ def cd(args):
     if directory_path[0] == '/': # already absolute directory
         absolute_path = directory_path
     else: # relative directory
-        path_segments = directory_path.strip('/').split('/')
+        path_segments = directory_path.strip(pathsep).split(pathsep)
         absolute_path = resolve_to_absolute_path(os.getcwd(), deque(path_segments))
 
     if os.path.isdir(absolute_path) == False:
