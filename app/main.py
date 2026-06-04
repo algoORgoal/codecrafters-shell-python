@@ -54,8 +54,6 @@ SHELL_BUILTIN_DICT = {
 EMPTY_STRING = ""
 
 def main():
-    
-
     while True:
         sys.stdout.write("$ ")
         command_line = input()
@@ -72,7 +70,7 @@ def main():
 
         if command_name in SHELL_BUILTIN_DICT.values():
             output = run_builtin_command(command_name, args)
-            if should_redirect:
+            if should_redirect == True:
                 with open(filename, "w") as f:
                     print(output if output is not None else "", file=f)
             else:
