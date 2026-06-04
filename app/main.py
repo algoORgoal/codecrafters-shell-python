@@ -76,7 +76,8 @@ def main():
                 with open(filename, "w") as f:
                     print(output if output is not None else "", file=f)
             else:
-                print(output)
+                if output is not None:
+                    print(output)
             
             continue
         
