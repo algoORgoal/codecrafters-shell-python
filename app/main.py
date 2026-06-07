@@ -28,7 +28,7 @@ def main():
         
         command_line, stdout_filename = parse_redirection_stdout(command_line)
         command_line, append_stdout_filename = parse_append_stdout(command_line)
-        command, stderr_filename = parse_redirection_stderr(command_line)
+        command_line, stderr_filename = parse_redirection_stderr(command_line)
         command, append_stderr_filename = parse_append_stderr(command_line)
         
         tokens = parse_command(command)
