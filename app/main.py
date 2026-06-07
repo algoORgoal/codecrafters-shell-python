@@ -5,6 +5,7 @@ from os import pathsep
 from os import access
 import subprocess
 from collections import deque
+import re
 
 # 1. stack is empty and character is ' => push
 # 2. stack is empty and character is space 
@@ -57,73 +58,135 @@ def main():
     while True:
         sys.stdout.write("$ ")
         command_line = input()
-        should_redirect = check_should_redirect(command_line)
-
+        should_redirect_stdout = check_should_redirect_stdout(command_line)
+        should_redirect_stderr = check_should_redirect_stderr(command_line)
         
-        command, filename = parse_redirection(command_line)
 
+        command_line, stdout_filename = parse_redirection_stdout(command_line)
+        command, stderr_filename = parse_redirection_stderr(command_line)
+        
         tokens = parse_command(command)
         command_name, args = tokens[0], tokens[1:]
 
+        
         if command_name == SHELL_BUILTIN_DICT['EXIT']:
             break
 
         if command_name in SHELL_BUILTIN_DICT.values():
-            output = run_builtin_command(command_name, args)
-            if should_redirect == True:
-                with open(filename, "w") as f:
-                    print(output if output is not None else "", file=f)
-            else:
-                if output is not None:
-                    print(output)
+            stdout = open(stdout_filename, "w") if should_redirect_stdout else None
+            stderr = open(stderr_filename, "w") if should_redirect_stderr else None
+
+            try:
+                run_builtin_command(command_name, args, stdout=stdout, stderr=stderr)
+            finally:
+                if should_redirect_stdout:
+                    stdout.close()
+                if should_redirect_stderr:
+                    stderr.close() 
+                
+            
+                
+                
+            
+            
+            # if should_redirect_stdout == True:
+            #     with open(stdout_filename, "w") as f:
+            #         print(output if output is not None else "", file=f)
+            # else:
+            #     if output is not None:
+            #         print(output)
+            
+            # try:
+            #     stdout = open(stdout_filename, "w") if should_redirect_stdout == True else None
+            # finally:
+            #     print(output if output is not None else "", file=stdout)
             
             continue
         
+            
         executable_path = find_executable_path(command_name)
         if executable_path is not None:
-            if should_redirect:
-                with open(filename, "w") as f:
-                    run_executable(command_name, args, f)
-            else:
-                run_executable(command_name, args)
+            stdout = open(stdout_filename, "w") if should_redirect_stdout else None 
+            stderr = open(stderr_filename, "w") if should_redirect_stderr else None
+            
+            try:
+                run_executable(command_name, args, stdout=stdout, stderr=stderr)
+            finally:
+                if should_redirect_stdout:
+                    stdout.close()
+                if should_redirect_stderr:
+                    stderr.close()
 
             continue
 
 
         print(f"{command}: command not found")
+        
 
-def run_builtin_command(command_name, args):
-    if command_name == SHELL_BUILTIN_DICT['ECHO']:
-        output = echo(args)
-        return output
+
+def run_builtin_command(command_name, args, stdout=None, stderr=None):
+    try:
+        output = None
+        if command_name == SHELL_BUILTIN_DICT['ECHO']:
+            output = echo(args)
             
-    if command_name == SHELL_BUILTIN_DICT['TYPE']:
-        output = type(args, set(SHELL_BUILTIN_DICT.values()))
-        return output
+        elif command_name == SHELL_BUILTIN_DICT['TYPE']:
+            output = type(args, set(SHELL_BUILTIN_DICT.values()))
 
-    if command_name == SHELL_BUILTIN_DICT['PWD']:
-        output = pwd(args)
-        return output
+        elif command_name == SHELL_BUILTIN_DICT['PWD']:
+            output = pwd(args)  
 
-    if command_name == SHELL_BUILTIN_DICT['CD']:
-        cd(args)
-        return None
+        elif command_name == SHELL_BUILTIN_DICT['CD']:
+            cd(args)
 
 
-def check_should_redirect(command):
+
+        if stdout is None and output is None:
+            return
+
+        if output is None:
+            print("", file=stdout)
+            return
+        
+        print(output, file=stdout)
+        
+
+    except Exception as e:
+        print(e, file=stderr)
+
+
+def check_should_redirect_stdout(command):
     return " > " in command or " 1> " in command
 
+def check_should_redirect_stderr(command):
+    return " 2> " in command
 
-def parse_redirection(command):
-    if " > " in command:
-        subcommand, filename = command.split(" > ")
-        return subcommand, filename
 
-    if " 1> " in command:
-        subcommand, filename = command.split(" 1> ")
-        return subcommand, filename
+def parse_redirection_stdout(command: str):
+    if ' > ' in command:
+        match = re.search(r'>[\s]+[\S]+', command)
+        filename = re.sub(r'>[\s]+', '', command[match.start():match.end()])
+        command = command[:match.start()] + command[match.end():]
+        return command, filename
+    
+    if ' 1> ' in command:
+        match = re.search(r'1>[\s]+[\S]+', command)
+        filename = re.sub(r'1>[\s]+', '', command[match.start():match.end()])
+        command = command[:match.start()] + command[match.end():]
+        return command, filename
+        
+
+    return command, None
+
+def parse_redirection_stderr(command: str):
+    if ' 2> ' in command:
+        match = re.search(r'2>[\s]+[\S]+', command)
+        filename = re.sub(r'2>[\s]+', '', command[match.start():match.end()])
+        command = command[:match.start()] + command[match.end():]
+        return command, filename
     
     return command, None
+    
 
 
 def echo(args):
@@ -223,8 +286,8 @@ def type(args, built_ins):
     return f"{text}: not found"
 
 
-def run_executable(command_name, args, stdout = None):
-    subprocess.run([command_name] + args, stdout=stdout)
+def run_executable(command_name, args, stdout = None, stderr=None):
+    subprocess.run([command_name] + args, stdout=stdout, stderr=stderr)
 
 
 def pwd(args):
@@ -338,3 +401,6 @@ if __name__ == "__main__":
 
 # 문제: file.write은 \n문제를 자동으로 붙이지 않음
 # 해결방법: print(string, file=f)를 f.write() 대신 사용한다.
+
+# 문제: stderr을 파일에 연결할 수 있어야 함, stdout과 stderr이 동시에 주어지는 경우도 있음
+# 해결 방법: subprocess.run의 stderr을 2> file에 연결한다.
