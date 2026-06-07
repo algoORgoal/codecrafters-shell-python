@@ -24,10 +24,12 @@ def main():
         should_redirect_stdout = check_should_redirect_stdout(command_line)
         should_append_stdout = check_should_append_stdout(command_line)
         should_redirect_stderr = check_should_redirect_stderr(command_line)
+        should_append_stderr = check_should_append_stderr(command_line)
         
         command_line, stdout_filename = parse_redirection_stdout(command_line)
         command_line, append_stdout_filename = parse_append_stdout(command_line)
         command, stderr_filename = parse_redirection_stderr(command_line)
+        command, append_stderr_filename = parse_append_stderr(command_line)
         
         tokens = parse_command(command)
         command_name, args = tokens[0], tokens[1:]
@@ -42,10 +44,12 @@ def main():
                 stdout = open(stdout_filename, "w")
             elif should_append_stdout:
                 stdout = open(append_stdout_filename, "a")
-                
+
             stderr = None
             if should_redirect_stderr:
                 stderr = open(stderr_filename, "w")
+            elif should_append_stderr:
+                stderr = open(append_stderr_filename, "a")
 
             try:
                 run_builtin_command(command_name, args, stdout=stdout, stderr=stderr)
@@ -69,7 +73,9 @@ def main():
             stderr = None
             if should_redirect_stderr:
                 stderr = open(stderr_filename, "w")
-            
+            elif should_append_stderr:
+                stderr = open(append_stderr_filename, "a")
+                
             try:
                 run_executable(command_name, args, stdout=stdout, stderr=stderr)
             finally:
@@ -119,11 +125,14 @@ def run_builtin_command(command_name, args, stdout=None, stderr=None):
 def check_should_redirect_stdout(command):
     return " > " in command or " 1> " in command
 
+def check_should_append_stdout(command):
+    return " >> " in command or " 1>> " in command
+
 def check_should_redirect_stderr(command):
     return " 2> " in command
 
-def check_should_append_stdout(command):
-    return " >> " in command or " 1>> " in command
+def check_should_append_stderr(command):
+    return " 2>> " in command
 
 
 
@@ -143,15 +152,6 @@ def parse_redirection_stdout(command: str):
 
     return command, None
 
-def parse_redirection_stderr(command: str):
-    if ' 2> ' in command:
-        match = re.search(r'2>[\s]+[\S]+', command)
-        filename = re.sub(r'2>[\s]+', '', command[match.start():match.end()])
-        command = command[:match.start()] + command[match.end():]
-        return command, filename
-    
-    return command, None
-
 def parse_append_stdout(command: str):
     if ' >> ' in command:
         match = re.search(r'>>[\s]+[\S]+', command)
@@ -168,6 +168,24 @@ def parse_append_stdout(command: str):
 
     return command, None
     
+def parse_redirection_stderr(command: str):
+    if ' 2> ' in command:
+        match = re.search(r'2>[\s]+[\S]+', command)
+        filename = re.sub(r'2>[\s]+', '', command[match.start():match.end()])
+        command = command[:match.start()] + command[match.end():]
+        return command, filename
+    
+    return command, None
+
+def parse_append_stderr(command: str):
+    if ' 2>> ' in command:
+        match = re.search(r'2>>[\s]+[\S]+', command)
+        filename = re.sub(r'2>>[\s]+', '', command[match.start():match.end()])
+        command = command[:match.start()] + command[match.end():]
+        return command, filename
+    
+    return command, None
+
 
 
 def echo(args):
