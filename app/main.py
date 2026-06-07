@@ -7,43 +7,6 @@ import subprocess
 from collections import deque
 import re
 
-# 1. stack is empty and character is ' => push
-# 2. stack is empty and character is space 
-
-# 'hello   world' => 'hello   world'
-# hello   world => hello   world
-# hello   'world' => hello world
-# hello'world' => helloworld
-# hello'world'hello => helloworldhello
-# ' => 시작
-# ' => 종료
-# quote 안에 들어있지 않은 space => 무시
-
-# abc'hello'world
-# 1. len(stack) == 0 and space => 갖다 버림
-
-
-# 'hello world'
-
-# echo를 제외한 다른 명령어의 경우에는
-# args= [ result for result in results if result != ' ']
-# 를 넣으면 되지 않냐?
-
-# echo 'hello  /'  world' hello world
-
-# 'abc'
-
-# 1. stack에 뭐가 들어있음
-# 2. stack의 bottom에 quote가 있음
-
-# abc'def'
-
-# 1. stack에 뭐가 들어있는 상태
-# 2. stack의 bottom에 quote가 없음
-
-# abc'def' 'ghi'
-# ['abcdef', 'ghi']
-
 SHELL_BUILTIN_DICT = {
     'EXIT': 'exit',
     'ECHO': 'echo',
@@ -59,10 +22,11 @@ def main():
         sys.stdout.write("$ ")
         command_line = input()
         should_redirect_stdout = check_should_redirect_stdout(command_line)
+        should_append_stdout = check_should_append_stdout(command_line)
         should_redirect_stderr = check_should_redirect_stderr(command_line)
         
-
         command_line, stdout_filename = parse_redirection_stdout(command_line)
+        command_line, append_stdout_filename = parse_append_stdout(command_line)
         command, stderr_filename = parse_redirection_stderr(command_line)
         
         tokens = parse_command(command)
@@ -73,48 +37,45 @@ def main():
             break
 
         if command_name in SHELL_BUILTIN_DICT.values():
-            stdout = open(stdout_filename, "w") if should_redirect_stdout else None
-            stderr = open(stderr_filename, "w") if should_redirect_stderr else None
+            stdout = None
+            if should_redirect_stdout:
+                stdout = open(stdout_filename, "w")
+            elif should_append_stdout:
+                stdout = open(append_stdout_filename, "a")
+                
+            stderr = None
+            if should_redirect_stderr:
+                stderr = open(stderr_filename, "w")
 
             try:
                 run_builtin_command(command_name, args, stdout=stdout, stderr=stderr)
             finally:
-                if should_redirect_stdout:
+                if stdout is not None:
                     stdout.close()
-                if should_redirect_stderr:
+                if stderr is not None:
                     stderr.close() 
-                
-            
-                
-                
-            
-            
-            # if should_redirect_stdout == True:
-            #     with open(stdout_filename, "w") as f:
-            #         print(output if output is not None else "", file=f)
-            # else:
-            #     if output is not None:
-            #         print(output)
-            
-            # try:
-            #     stdout = open(stdout_filename, "w") if should_redirect_stdout == True else None
-            # finally:
-            #     print(output if output is not None else "", file=stdout)
             
             continue
         
             
         executable_path = find_executable_path(command_name)
         if executable_path is not None:
-            stdout = open(stdout_filename, "w") if should_redirect_stdout else None 
-            stderr = open(stderr_filename, "w") if should_redirect_stderr else None
+            stdout = None
+            if should_redirect_stdout:
+                stdout = open(stdout_filename, "w")
+            elif should_append_stdout:
+                stdout = open(append_stdout_filename, "a")
+                
+            stderr = None
+            if should_redirect_stderr:
+                stderr = open(stderr_filename, "w")
             
             try:
                 run_executable(command_name, args, stdout=stdout, stderr=stderr)
             finally:
-                if should_redirect_stdout:
+                if stdout is not None:
                     stdout.close()
-                if should_redirect_stderr:
+                if stderr is not None:
                     stderr.close()
 
             continue
@@ -161,6 +122,10 @@ def check_should_redirect_stdout(command):
 def check_should_redirect_stderr(command):
     return " 2> " in command
 
+def check_should_append_stdout(command):
+    return " >> " in command or " 1>> " in command
+
+
 
 def parse_redirection_stdout(command: str):
     if ' > ' in command:
@@ -185,6 +150,22 @@ def parse_redirection_stderr(command: str):
         command = command[:match.start()] + command[match.end():]
         return command, filename
     
+    return command, None
+
+def parse_append_stdout(command: str):
+    if ' >> ' in command:
+        match = re.search(r'>>[\s]+[\S]+', command)
+        filename = re.sub(r'>>[\s]+', '', command[match.start():match.end()])
+        command = command[:match.start()] + command[match.end():]
+        return command, filename
+    
+    if ' 1>> ' in command:
+        match = re.search(r'1>>[\s]+[\S]+', command)
+        filename = re.sub(r'1>>[\s]+', '', command[match.start():match.end()])
+        command = command[:match.start()] + command[match.end():]
+        return command, filename
+        
+
     return command, None
     
 
@@ -238,28 +219,6 @@ def parse_command(string):
 
     return tokens
 
-        
-    
-
-    
-
-
-# echo 'hello      world' => hello      world
-# echo hello      world => hello world
-# echo 'hello''world' => helloworld
-# echo hello''world => helloworld
-
-# def parse_arguments(string: str):
-#     stack = []
-#     for char in string:
-#         if len(stack) == 0:
-#             if char == ' ':
-#                 continue
-#             else:
-#                 stack.append(char)
-#         else:
-
-
 def find_executable_path(command_name):
     PATH = environ.get("PATH")
     if PATH is None:
@@ -309,13 +268,6 @@ def cd(args):
         
     os.chdir(absolute_path)
 
-
-# split path into path segments
-# if the path segment is working directory => return current
-# if the path semgent is parent => return parent
-# if the path segment is a directory
-# if current is None and the path segment is PARENT => pwd + parent
-
 def resolve_to_absolute_path(current, path_segments):
     if len(path_segments) == 0:
         return current
@@ -346,45 +298,6 @@ if __name__ == "__main__":
     main()
 
 
-# 문제: path가 /로 시작하는 경우 root directory에서 시작한다.
-#      path가 /로 시작하지 않는 경우 current working directory에서 시작한다.
-# 해결방안: path가 /로 시작하는 경우 이미 절대경로이다.
-#         path가 /로 시작하는 경우에만 상대경로이고, 이를 절대경로로 변환한다.
-
-
-# single quotes
-# 'hello  world' => single quote string literal is considered a single argument,
-# while prevsing whitespaces.
-# 'hello' world' quoted strings are considered as a single argument
-# hello '' world => empty quotes are ignored
-
-# stack으로 쉽게 해결이 안 된다
-# state machine으로 해결해야 한다.
-# single quote 안에 있다 => in_single_quote = True
-# single quote 안에 있는 상태가 아니다 => in_single_quote = False
-# 
-# while char in string:
-#  if in_single_quote == False and char == " ":
-#    if token != "":
-#      args.append(token)
-#      token = ""
-#  elif in_single_quote == False and char == "'":
-#    in_single_quote = True
-#    token += char
-#  elif in_single_quote == False:
-#    token += char
-#  elif in_single_quote == True and char == "'":
-#    in_single_quote = False
-#    args.append(token)
-#    token = ""
-#  else:
-#    token += char
-#  
-
-#    
-#  if in
-
-
 # 1. " > "이 command 안에 있는지 확인
 # 2. 안에 있으면 " > " 기준으로 명령어 쪼개기
 # 3. 첫번째 파트 명령어 수행
@@ -404,3 +317,7 @@ if __name__ == "__main__":
 
 # 문제: stderr을 파일에 연결할 수 있어야 함, stdout과 stderr이 동시에 주어지는 경우도 있음
 # 해결 방법: subprocess.run의 stderr을 2> file에 연결한다.
+
+# 문제: echo List of files: > bar.md에 쓰기할 때 close 실패함
+# 원인: stdout이 append가 안 될 때 None으로 전환되어서, 기존 참조를 잃어버림
+# 해결방법: 조건문으로 분기 처리
