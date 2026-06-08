@@ -108,26 +108,41 @@ def register_command_autocomplete():
     
         
 def command_completer(text: str, state: int):
+    line = readline.get_line_buffer()
+    tokens = parse_command(line)
+    command_name = tokens[0]
+
     matches = []
 
-    for command_name in SHELL_BUILTIN_DICT.values():
-         if command_name.startswith(text):
-           matches.append(command_name)
 
-    PATH = os.environ.get("PATH")
-    
-    if PATH is not None:
-        directories = PATH.split(pathsep)
-        for directory in directories:
-            if access(directory, os.X_OK) == False:
-                continue
-            for name in os.listdir(directory):
-                if name.startswith(text):
-                    matches.append(name)
-    
-    
+    if text[readline.get_begidx():readline.get_endidx()] == command_name:
+        for command_name in SHELL_BUILTIN_DICT.values():
+            if command_name.startswith(text):
+                matches.append(command_name)
 
+        PATH = os.environ.get("PATH")
+        
+        if PATH is not None:
+            directories = PATH.split(pathsep)
+            for directory in directories:
+                if access(directory, os.X_OK) == False:
+                    continue
+                for name in os.listdir(directory):
+                    if name.startswith(text):
+                        matches.append(name)
+        
+        
+
+        return matches[state] + " " if state < len(matches) else None
+
+    for name in os.listdir(os.getcwd()):
+        if name.startswith(text):
+            matches.append(name)
+
+    
     return matches[state] + " " if state < len(matches) else None
+
+    
 
 
 def run_builtin_command(command_name, args, stdout=None, stderr=None):
