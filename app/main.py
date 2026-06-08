@@ -1,3 +1,4 @@
+from typing import Callable
 import os
 import sys
 from os import environ
@@ -6,6 +7,15 @@ from os import access
 import subprocess
 from collections import deque
 import re
+import readline
+
+KEYBOARD_DICT = {
+    'TAB': 'tab',
+}
+
+INTERACTION_DICT = {
+    'COMPLETE': 'complete',
+}
 
 SHELL_BUILTIN_DICT = {
     'EXIT': 'exit',
@@ -18,18 +28,16 @@ SHELL_BUILTIN_DICT = {
 EMPTY_STRING = ""
 
 def main():
+    register_command_autocomplete()
+
     while True:
-        sys.stdout.write("$ ")
-        command_line = input()
+        command_line = input("$ ")
         should_redirect_stdout = check_should_redirect_stdout(command_line)
         should_append_stdout = check_should_append_stdout(command_line)
         should_redirect_stderr = check_should_redirect_stderr(command_line)
         should_append_stderr = check_should_append_stderr(command_line)
         
-        command_line, stdout_filename = parse_redirection_stdout(command_line)
-        command_line, append_stdout_filename = parse_append_stdout(command_line)
-        command_line, stderr_filename = parse_redirection_stderr(command_line)
-        command, append_stderr_filename = parse_append_stderr(command_line)
+        command, (stdout_filename, append_stdout_filename), (stderr_filename, append_stderr_filename) = parse_stdout_and_stderr(command_line)
         
         tokens = parse_command(command)
         command_name, args = tokens[0], tokens[1:]
@@ -88,7 +96,20 @@ def main():
 
 
         print(f"{command}: command not found")
+
+def register_command_autocomplete():
+    # mac에서는 라이선스 이슈로 gnu readline 구현체 대신 libedit readline을 사용한다.
+    if 'libedit' in readline.__doc__:
+        readline.parse_and_bind("bind ^I rl_complete")
+    else:
+        readline.parse_and_bind("tab: complete")
+    readline.set_completer(command_completer)
+    
         
+def command_completer(text: str, state: int):
+    matches = [ command_name for command_name in SHELL_BUILTIN_DICT.values() if command_name.startswith(text)]
+                
+    return matches[state] + " " if state < len(matches) else None
 
 
 def run_builtin_command(command_name, args, stdout=None, stderr=None):
@@ -120,6 +141,14 @@ def run_builtin_command(command_name, args, stdout=None, stderr=None):
 
     except Exception as e:
         print(e, file=stderr)
+
+def parse_stdout_and_stderr(command_line: str):
+    command_line, stdout_filename = parse_redirection_stdout(command_line)
+    command_line, append_stdout_filename = parse_append_stdout(command_line)
+    command_line, stderr_filename = parse_redirection_stderr(command_line)
+    command, append_stderr_filename = parse_append_stderr(command_line)
+
+    return command, (stdout_filename, append_stdout_filename), (stderr_filename, append_stderr_filename)
 
 
 def check_should_redirect_stdout(command):
