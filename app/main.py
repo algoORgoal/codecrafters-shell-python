@@ -109,6 +109,7 @@ def register_command_autocomplete():
         
 def command_completer(text: str, state: int):
     line = readline.get_line_buffer()
+
     tokens = parse_command(line)
     command_name = tokens[0]
 
@@ -133,6 +134,27 @@ def command_completer(text: str, state: int):
         
         
 
+        return matches[state] + " " if state < len(matches) else None
+
+    arg = tokens[-1]
+
+    if "/" in arg:
+        
+        directory_path = arg
+    
+        if directory_path[0] == "/": # already absolute directory
+            absolute_path = directory_path
+        else: # relative directory
+            path_segments = directory_path.strip(pathsep).split(pathsep)
+            absolute_path = resolve_to_absolute_path(os.getcwd(), deque(path_segments))
+        
+        absolute_path, prefix = "/".join(absolute_path.split("/")[:-1]), absolute_path.split("/")[-1] 
+
+        if os.path.isdir(absolute_path) == True:
+            for name in os.listdir(absolute_path):
+                if name.startswith(prefix):
+                    matches.append(name)
+        
         return matches[state] + " " if state < len(matches) else None
 
     for name in os.listdir(os.getcwd()):
