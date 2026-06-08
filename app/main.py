@@ -103,12 +103,30 @@ def register_command_autocomplete():
         readline.parse_and_bind("bind ^I rl_complete")
     else:
         readline.parse_and_bind("tab: complete")
+
     readline.set_completer(command_completer)
     
         
 def command_completer(text: str, state: int):
-    matches = [ command_name for command_name in SHELL_BUILTIN_DICT.values() if command_name.startswith(text)]
-                
+    matches = []
+
+    for command_name in SHELL_BUILTIN_DICT.values():
+         if command_name.startswith(text):
+           matches.append(command_name)
+
+    PATH = os.environ.get("PATH")
+    
+    if PATH is not None:
+        directories = PATH.split(pathsep)
+        for directory in directories:
+            if access(directory, os.X_OK) == False:
+                continue
+            for name in os.listdir(directory):
+                if name.startswith(text):
+                    matches.append(name)
+    
+    
+
     return matches[state] + " " if state < len(matches) else None
 
 
