@@ -108,7 +108,6 @@ def register_command_autocomplete():
     
         
 def command_completer(text: str, state: int):
-    print(text)
     line = readline.get_line_buffer()
 
     tokens = parse_command(line)
