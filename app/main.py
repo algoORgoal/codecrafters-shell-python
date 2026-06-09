@@ -211,6 +211,9 @@ def run_builtin_command(command_name, args, stdout=None, stderr=None):
 
         elif command_name == SHELL_BUILTIN_DICT['CD']:
             cd(args)
+        
+        elif command_name == SHELL_BUILTIN_DICT['COMPLETE']:
+            complete(args)
 
 
 
@@ -424,6 +427,20 @@ def resolve_to_absolute_path(current, path_segments):
         absolute_path = f"{current}{os.sep}{path_segment}"
 
     return resolve_to_absolute_path(absolute_path, path_segments)
+
+def complete(args):
+    queue = deque(args)
+
+    while len(queue) > 0:
+        arg = queue.popleft()
+        if arg.startswith("-") or arg.startswith("--"):
+            option = arg
+            value = queue.popleft()
+            
+            if option == "-p":
+                print(f"complete: {value}: no completion specification")
+    
+    
 
 
 if __name__ == "__main__":
