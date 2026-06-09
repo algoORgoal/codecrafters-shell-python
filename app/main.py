@@ -164,12 +164,16 @@ def custom_completer(text: str, state: int):
 
     tokens = parse_command(line)
     command_name = tokens[0]    
-
-    output = subprocess.run([command_to_custom_completer_dict[command_name]], capture_output=True, text=True)
-    for match in output.stdout.strip(os.linesep).split(os.linesep):
-        matches.append(match)
-        match_to_type_dict[match] = "CUSTOM"
     
+    try:
+        output = subprocess.run([command_to_custom_completer_dict[command_name]], capture_output=True, text=True, shell=True)
+    except OSError as e:
+        print(e)
+    if output.stdout != EMPTY_STRING:    
+        for match in output.stdout.strip(os.linesep).split(os.linesep):
+            matches.append(match)
+            match_to_type_dict[match] = "CUSTOM"
+
     return format_match(matches, state, match_to_type_dict)
     
 
@@ -520,3 +524,12 @@ if __name__ == "__main__":
 # 문제: custom completer를 만들어야 한다. linebreak를 기준으로 끊어서 반환한 값이 후보자가 된다.
 # 해결방법: 처음과 끝에 있는 linebreak를 제거하고 linebreak 기준으로 split한 것을 matches에 넣기. 운영체제 독립적으로 
 #         작동하도록 os.linesep를 사용한다.
+
+# 문제: sys.executable로 설명하면 python script만 completer로 실행 가능하다.
+# 해결방안: sys.executable을 빼면 쉘에서 실행 가능한 script를 모두 실행할 수 있다.
+
+# 문제: custom output을 모두 출력한 뒤에 space를 출력해야 한다.
+# 해결방법: custom completer로 따로 로직을 분리한 다음에, 출력은 format_match로 처리한다.
+
+# 문제: 로컬에서 테스트할 때는 subprocess를 shell로 실행할 때 permission denied error가 발생한다.
+# 해결방법: shell=True 옵션을 넣어서 실행한다.
