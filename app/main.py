@@ -23,6 +23,7 @@ SHELL_BUILTIN_DICT = {
     'TYPE': 'type',
     "PWD": 'pwd',
     "CD": 'cd',
+    'COMPLETE': 'complete',
 }
 
 EMPTY_STRING = ""
