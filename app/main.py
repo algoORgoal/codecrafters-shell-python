@@ -28,6 +28,8 @@ SHELL_BUILTIN_DICT = {
 EMPTY_STRING = ""
 
 def main():
+    delims = readline.get_completer_delims()
+    readline.set_completer_delims(delims.replace("-", "").replace(os.sep, ""))
     register_command_autocomplete()
 
     while True:
@@ -115,11 +117,14 @@ def command_completer(text: str, state: int):
 
     matches = []
 
+    state_type_dict = {}
 
+    # command completion
     if text[readline.get_begidx():readline.get_endidx()] == command_name:
         for command_name in SHELL_BUILTIN_DICT.values():
             if command_name.startswith(text):
                 matches.append(command_name)
+                state_type_dict[command_name] = "COMMAND"
 
         PATH = os.environ.get("PATH")
         
@@ -131,38 +136,39 @@ def command_completer(text: str, state: int):
                 for name in os.listdir(directory):
                     if name.startswith(text):
                         matches.append(name)
-        
-        
+                        state_type_dict[name] = "COMMAND"
 
-        return matches[state] + " " if state < len(matches) else None
-
-    arg = tokens[-1]
-
-    if "/" in arg:
-        
-        directory_path = arg
+    # nested file completion
+    elif os.sep in text:
+        directory_path, prefix = os.sep.join(text.split(os.sep)[:-1]), text.split(os.sep)[-1]
     
-        if directory_path[0] == "/": # already absolute directory
+        if directory_path.startswith(os.sep): # already absolute directory
             absolute_path = directory_path
         else: # relative directory
-            path_segments = directory_path.strip(pathsep).split(pathsep)
+            path_segments = directory_path.strip(os.sep).split(os.sep)
             absolute_path = resolve_to_absolute_path(os.getcwd(), deque(path_segments))
         
-        absolute_path, prefix = "/".join(absolute_path.split("/")[:-1]), absolute_path.split("/")[-1] 
-
         if os.path.isdir(absolute_path) == True:
             for name in os.listdir(absolute_path):
                 if name.startswith(prefix):
-                    matches.append(name)
-        
-        return matches[state] + " " if state < len(matches) else None
-
-    for name in os.listdir(os.getcwd()):
-        if name.startswith(text):
-            matches.append(name)
+                    match_path = f"{directory_path}{os.sep}{name}"
+                    matches.append(match_path)
+                    state_type_dict[match_path] = "DIRECTORY" if os.path.isdir(match_path) else "FILE"
+    
+    # file completion at current working directory
+    else:
+        working_directory = os.getcwd()
+        for name in os.listdir(working_directory):
+            if name.startswith(text):
+                matches.append(name)
+                match_path = f"{working_directory}{os.sep}{name}"
+                state_type_dict[name] = "DIRECTORY" if os.path.isdir(match_path) else "FILE"
 
     
-    return matches[state] + " " if state < len(matches) else None
+    if state_type_dict[matches[state]] == "DIRECTORY":
+        return f"{matches[state]}{os.sep}"
+    else:
+        return f"{matches[state]} "
 
     
 
@@ -328,7 +334,7 @@ def find_executable_path(command_name):
 
     directories = PATH.split(pathsep)
     for directory in directories:
-        path = directory + "/" + command_name
+        path = f"{directory}{os.sep}{command_name}"
         if access(path, os.X_OK) == True:
             return path
 
@@ -361,7 +367,7 @@ def cd(args):
     if directory_path[0] == '/': # already absolute directory
         absolute_path = directory_path
     else: # relative directory
-        path_segments = directory_path.strip(pathsep).split(pathsep)
+        path_segments = directory_path.strip(pathsep).split(os.sep)
         absolute_path = resolve_to_absolute_path(os.getcwd(), deque(path_segments))
 
     if os.path.isdir(absolute_path) == False:
@@ -391,7 +397,7 @@ def resolve_to_absolute_path(current, path_segments):
         home_directory = os.environ.get('HOME')
         absolute_path = home_directory
     else:
-        absolute_path = current + '/' + path_segment
+        absolute_path = f"{current}{os.sep}{path_segment}"
 
     return resolve_to_absolute_path(absolute_path, path_segments)
 
@@ -423,3 +429,13 @@ if __name__ == "__main__":
 # 문제: echo List of files: > bar.md에 쓰기할 때 close 실패함
 # 원인: stdout이 append가 안 될 때 None으로 전환되어서, 기존 참조를 잃어버림
 # 해결방법: 조건문으로 분기 처리
+
+# 문졔: absolute directory를 결과에 사용하면 상대경로가 절대경로로 변환된다.
+# 해결방법: 
+#   입력으로 주어지는 디렉토리를 결과물에 사용한다.
+#   이 때, 경로 중 디렉토리 부분만 추출해야 하고, 이 때 자연스럽게 filename prefix를 구할 수 있다.
+#   os.sep을 사용하여 운영체제와 독립적으로 실행한다.
+
+# 문제: 디렉토리 자동완성인 경우 separator 추가하고, space 붙이지 않아야 한다.
+# 해결 방법: 각 상태가 directory인지 file인지 구분하는 딕셔너리를 만든다.
+#          출력 형식을 결정하는 로직과 match 결과를 반환하는 로직을 분리한다.
