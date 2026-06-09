@@ -106,25 +106,33 @@ def register_command_autocomplete():
     else:
         readline.parse_and_bind("tab: complete")
 
-    readline.set_completer(command_completer)
+    readline.set_completer(master_completer)
     
         
-def command_completer(text: str, state: int):
+def master_completer(text: str, state: int):
     line = readline.get_line_buffer()
 
     tokens = parse_command(line)
     command_name = tokens[0]
 
-    matches = []
-
-    state_type_dict = {}
-
     # command completion
     if text[readline.get_begidx():readline.get_endidx()] == command_name:
-        for command_name in SHELL_BUILTIN_DICT.values():
-            if command_name.startswith(text):
-                matches.append(command_name)
-                state_type_dict[command_name] = "COMMAND"
+        return command_completer(text, state)
+    
+    # nested file completion
+    if os.sep in text:
+        return nested_file_completer(text, state)
+    
+    # file completion at current working directory
+    return working_directory_file_completer(text, state)
+
+def command_completer(text: str, state: int):
+    matches = []
+    match_to_type_dict = {}
+    for command_name in SHELL_BUILTIN_DICT.values():
+        if command_name.startswith(text):
+            matches.append(command_name)
+            match_to_type_dict[command_name] = "COMMAND"
 
         PATH = os.environ.get("PATH")
         
@@ -136,41 +144,56 @@ def command_completer(text: str, state: int):
                 for name in os.listdir(directory):
                     if name.startswith(text):
                         matches.append(name)
-                        state_type_dict[name] = "COMMAND"
+                        match_to_type_dict[name] = "COMMAND"
+    
+    return format_match(matches, state, match_to_type_dict)
 
-    # nested file completion
-    elif os.sep in text:
-        directory_path, prefix = os.sep.join(text.split(os.sep)[:-1]), text.split(os.sep)[-1]
-    
-        if directory_path.startswith(os.sep): # already absolute directory
-            absolute_path = directory_path
-        else: # relative directory
-            path_segments = directory_path.strip(os.sep).split(os.sep)
-            absolute_path = resolve_to_absolute_path(os.getcwd(), deque(path_segments))
-        
-        if os.path.isdir(absolute_path) == True:
-            for name in os.listdir(absolute_path):
-                if name.startswith(prefix):
-                    match_path = f"{directory_path}{os.sep}{name}"
-                    matches.append(match_path)
-                    state_type_dict[match_path] = "DIRECTORY" if os.path.isdir(match_path) else "FILE"
-    
-    # file completion at current working directory
-    else:
-        working_directory = os.getcwd()
-        for name in os.listdir(working_directory):
-            if name.startswith(text):
-                matches.append(name)
-                match_path = f"{working_directory}{os.sep}{name}"
-                state_type_dict[name] = "DIRECTORY" if os.path.isdir(match_path) else "FILE"
+def nested_file_completer(text: str, state: int):
+    matches = []
+    match_to_type_dict = {}
 
+    directory_path, prefix = os.sep.join(text.split(os.sep)[:-1]), text.split(os.sep)[-1]
     
-    if state_type_dict[matches[state]] == "DIRECTORY":
+    if directory_path.startswith(os.sep): # already absolute directory
+        absolute_path = directory_path
+    else: # relative directory
+        path_segments = directory_path.strip(os.sep).split(os.sep)
+        absolute_path = resolve_to_absolute_path(os.getcwd(), deque(path_segments))
+    
+    if os.path.isdir(absolute_path) == True:
+        for name in os.listdir(absolute_path):
+            if name.startswith(prefix):
+                match_path = f"{directory_path}{os.sep}{name}"
+                matches.append(match_path)
+                match_to_type_dict[match_path] = "DIRECTORY" if os.path.isdir(match_path) else "FILE"
+    
+    return format_match(matches, state, match_to_type_dict)
+
+def working_directory_file_completer(text: str, state: int):
+    matches = []
+    match_to_type_dict = {}
+
+    working_directory = os.getcwd()
+    for name in os.listdir(working_directory):
+        if name.startswith(text):
+            matches.append(name)
+            match_path = f"{working_directory}{os.sep}{name}"
+            match_to_type_dict[name] = "DIRECTORY" if os.path.isdir(match_path) else "FILE"
+    
+    return format_match(matches, state, match_to_type_dict)
+
+def format_match(matches: list[str], state: int, match_to_type_dict: dict[str, str]):
+    if len(matches) <= state:
+        return None
+    if match_to_type_dict[matches[state]] == "DIRECTORY":
         return f"{matches[state]}{os.sep}"
     else:
         return f"{matches[state]} "
 
     
+    
+
+
 
 
 def run_builtin_command(command_name, args, stdout=None, stderr=None):
