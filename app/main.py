@@ -1,3 +1,4 @@
+import sys
 from typing import Callable
 import os
 import sys
@@ -116,12 +117,16 @@ def master_completer(text: str, state: int):
     line = readline.get_line_buffer()
 
     tokens = parse_command(line)
-    command_name = tokens[0]
+    command_name = tokens[0]    
 
     # command completion
     if text[readline.get_begidx():readline.get_endidx()] == command_name:
         return command_completer(text, state)
-    
+
+    # custom completion
+    if command_name in command_to_custom_completer_dict:
+        return custom_completer(text, state)
+        
     # nested file completion
     if os.sep in text:
         return nested_file_completer(text, state)
@@ -150,6 +155,23 @@ def command_completer(text: str, state: int):
                         match_to_type_dict[name] = "COMMAND"
     
     return format_match(matches, state, match_to_type_dict)
+
+def custom_completer(text: str, state: int):
+    matches = []
+    match_to_type_dict = {}
+
+    line = readline.get_line_buffer()
+
+    tokens = parse_command(line)
+    command_name = tokens[0]    
+
+    output = subprocess.run([command_to_custom_completer_dict[command_name]], capture_output=True, text=True)
+    for match in output.stdout.strip(os.linesep).split(os.linesep):
+        matches.append(match)
+        match_to_type_dict[match] = "CUSTOM"
+    
+    return format_match(matches, state, match_to_type_dict)
+    
 
 def nested_file_completer(text: str, state: int):
     matches = []
@@ -439,6 +461,8 @@ def complete(args):
             option = arg
         
             if option == "-C":
+                # todo handle relative path
+                # todo check if the file exists and is executable
                 path_to_completer = queue.popleft()
                 command_name = queue.popleft()
                 command_to_custom_completer_dict[command_name] = path_to_completer
@@ -492,3 +516,7 @@ if __name__ == "__main__":
 # 문제: 디렉토리 자동완성인 경우 separator 추가하고, space 붙이지 않아야 한다.
 # 해결 방법: 각 상태가 directory인지 file인지 구분하는 딕셔너리를 만든다.
 #          출력 형식을 결정하는 로직과 match 결과를 반환하는 로직을 분리한다.
+
+# 문제: custom completer를 만들어야 한다. linebreak를 기준으로 끊어서 반환한 값이 후보자가 된다.
+# 해결방법: 처음과 끝에 있는 linebreak를 제거하고 linebreak 기준으로 split한 것을 matches에 넣기. 운영체제 독립적으로 
+#         작동하도록 os.linesep를 사용한다.

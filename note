@@ -1,0 +1,3 @@
+complete -C /Users/mac/Projects/codecrafters-shell-python/hello.py docker
+complete -p docker
+docker 
