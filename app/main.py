@@ -28,6 +28,8 @@ SHELL_BUILTIN_DICT = {
 
 EMPTY_STRING = ""
 
+command_to_custom_completer_dict = {}
+
 def main():
     delims = readline.get_completer_delims()
     readline.set_completer_delims(delims.replace("-", "").replace(os.sep, ""))
@@ -435,10 +437,20 @@ def complete(args):
         arg = queue.popleft()
         if arg.startswith("-") or arg.startswith("--"):
             option = arg
-            value = queue.popleft()
+        
+            if option == "-C":
+                path_to_completer = queue.popleft()
+                command_name = queue.popleft()
+                command_to_custom_completer_dict[command_name] = path_to_completer
+
             
-            if option == "-p":
-                print(f"complete: {value}: no completion specification")
+            elif option == "-p":
+                command_name = queue.popleft()
+                if command_name in command_to_custom_completer_dict:
+                    path = command_to_custom_completer_dict[command_name]
+                    print(f"complete -C '{path}' {command_name}")
+                else:
+                    print(f"complete: {command_name}: no completion specification")
     
     
 
