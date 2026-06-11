@@ -9,6 +9,7 @@ import subprocess
 from collections import deque
 import re
 import readline
+import stat
 
 KEYBOARD_DICT = {
     'TAB': 'tab',
@@ -120,6 +121,7 @@ def master_completer(text: str, state: int):
     command_name = tokens[0]    
 
     # command completion
+    # fixme argument가 command name과 같으면 command name과 현재 token이 같을 수 있음. 예를 들어 cd 'cd'
     if text[readline.get_begidx():readline.get_endidx()] == command_name:
         return command_completer(text, state)
 
@@ -161,18 +163,26 @@ def custom_completer(text: str, state: int):
     match_to_type_dict = {}
 
     line = readline.get_line_buffer()
+    start_index = readline.get_begidx()
+    
 
-    tokens = parse_command(line)
-    command_name = tokens[0]    
+    tokens = parse_command(line[:start_index])
+    previous = tokens[-1] if len(tokens) > 0 else None
+
+    command_name = tokens[0]
     
     try:
-        output = subprocess.run([command_to_custom_completer_dict[command_name]], capture_output=True, text=True, shell=True)
+        path = command_to_custom_completer_dict[command_name]
+        output = subprocess.run([path, command_name, text, previous], capture_output=True, text=True)
     except OSError as e:
         print(e)
-    if output.stdout != EMPTY_STRING:    
+    
+    if output.stdout != EMPTY_STRING:
         for match in output.stdout.strip(os.linesep).split(os.linesep):
             matches.append(match)
             match_to_type_dict[match] = "CUSTOM"
+    
+    
 
     return format_match(matches, state, match_to_type_dict)
     
@@ -532,4 +542,4 @@ if __name__ == "__main__":
 # 해결방법: custom completer로 따로 로직을 분리한 다음에, 출력은 format_match로 처리한다.
 
 # 문제: 로컬에서 테스트할 때는 subprocess를 shell로 실행할 때 permission denied error가 발생한다.
-# 해결방법: shell=True 옵션을 넣어서 실행한다.
+# 해결방법: shell=True 옵션을 넣어서 실행한다. 그러면 OS 직접 수행시 권한 막히는 거 해결 가능
