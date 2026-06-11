@@ -9,7 +9,7 @@ import subprocess
 from collections import deque
 import re
 import readline
-import stat
+import signal
 
 KEYBOARD_DICT = {
     'TAB': 'tab',
@@ -40,6 +40,8 @@ def main():
     delims = readline.get_completer_delims()
     readline.set_completer_delims(delims.replace("-", "").replace(os.sep, ""))
     register_command_autocomplete()
+
+    signal.signal(signal.SIGCHLD, reap)
 
     while True:
         command_line = input("$ ")            
@@ -550,6 +552,7 @@ def complete(args):
 
 def jobs():
     output = []
+    to_be_deleted = []
     for job_number, info in background_job_to_info_dict.items():
         recency = calculate_job_recency(job_number)
         
@@ -561,6 +564,12 @@ def jobs():
             status_symbol = " "
 
         output.append(f"[{job_number}]{status_symbol}  {info["status"].ljust(24)}{' '.join(info['command'])}")
+
+        if info["status"] == "Done":
+            to_be_deleted.append(job_number)
+
+    for job_number in to_be_deleted:
+        del background_job_to_info_dict[job_number]
 
     if len(output) == 0:
         return None
@@ -600,6 +609,29 @@ def declare(args):
             if option == "-p":
                 variable_name = queue.popleft()
                 return f"declare: {variable_name}: not found"
+
+def reap(signum, frame):
+    ANY_CHILD_PROCESS = -1
+    NO_WAIT = os.WNOHANG
+
+    try:
+        pid, status = os.waitpid(ANY_CHILD_PROCESS, NO_WAIT)
+        
+        # no terminated child processes
+        if pid == 0:
+            return
+        
+        for job_number, info in background_job_to_info_dict.items():
+            if info["pid"] == pid:
+                info["status"] = "Done"
+                break
+    
+    except ChildProcessError: # no more child processes
+        pass
+            
+
+
+
     
         
 
