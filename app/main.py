@@ -26,6 +26,7 @@ SHELL_BUILTIN_DICT = {
     "PWD": 'pwd',
     "CD": 'cd',
     'COMPLETE': 'complete',
+    'JOBS': 'jobs'
 }
 
 EMPTY_STRING = ""
@@ -268,7 +269,8 @@ def run_builtin_command(command_name, args, stdout=None, stderr=None):
         elif command_name == SHELL_BUILTIN_DICT['COMPLETE']:
             complete(args)
 
-
+        elif command_name == SHELL_BUILTIN_DICT['JOBS']:
+            output = jobs()
 
         if stdout is None and output is None:
             return
@@ -511,7 +513,8 @@ def complete(args):
                 if command_name in command_to_custom_completer_dict:
                     del command_to_custom_completer_dict[command_name]
 
-                
+def jobs():
+    return None
     
     
 
