@@ -504,6 +504,14 @@ def complete(args):
                     print(f"complete -C '{path}' {command_name}")
                 else:
                     print(f"complete: {command_name}: no completion specification")
+
+            elif option == "-r":
+                command_name = queue.popleft()
+
+                if command_name in command_to_custom_completer_dict:
+                    del command_to_custom_completer_dict[command_name]
+
+                
     
     
 
