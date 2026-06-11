@@ -1,3 +1,0 @@
-complete -C /Users/mac/Projects/codecrafters-shell-python/script.py docker
-complete -p docker
-docker 

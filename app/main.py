@@ -30,7 +30,7 @@ SHELL_BUILTIN_DICT = {
 
 EMPTY_STRING = ""
 
-command_to_custom_completer_dict = {}
+command_to_custom_completer_dict: dict[str, str] = {}
 
 def main():
     delims = readline.get_completer_delims()
@@ -164,16 +164,23 @@ def custom_completer(text: str, state: int):
 
     line = readline.get_line_buffer()
     start_index = readline.get_begidx()
-    
+    end_index = readline.get_endidx()
 
     tokens = parse_command(line[:start_index])
     previous = tokens[-1] if len(tokens) > 0 else None
 
+
     command_name = tokens[0]
+
+    env = create_env({
+        "COMP_LINE": line,
+        "COMP_POINT": end_index,
+    })
     
+
     try:
         path = command_to_custom_completer_dict[command_name]
-        output = subprocess.run([path, command_name, text, previous], capture_output=True, text=True)
+        output = subprocess.run([path, command_name, text, previous], capture_output=True, text=True, env=env)
     except OSError as e:
         print(e)
     
@@ -185,6 +192,14 @@ def custom_completer(text: str, state: int):
     
 
     return format_match(matches, state, match_to_type_dict)
+
+def create_env(table):
+    env = os.environ.copy()
+    for key in table:
+        value = table[key]
+        env[key] = str(value)
+    return env
+    
     
 
 def nested_file_completer(text: str, state: int):
@@ -348,7 +363,7 @@ def echo(args):
 
 
 
-def parse_command(string):
+def parse_command(string: str) -> list[str]:
     tokens = []
     in_single_quote = False
     in_double_quote = False
