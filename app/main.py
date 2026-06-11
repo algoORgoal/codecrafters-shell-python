@@ -33,7 +33,7 @@ SHELL_BUILTIN_DICT = {
 EMPTY_STRING = ""
 
 command_to_custom_completer_dict: dict[str, str] = {}
-job_to_process_dict: dict[int, int] = {}
+background_job_to_info_dict: dict[int, dict[str, str | int]] = {}
 
 
 def main():
@@ -70,7 +70,7 @@ def main():
                 stderr = open(append_stderr_filename, "a")
 
             try:
-                job_message = run_background(tokens[:-1], out=stdout, err=stderr)
+                job_message = run_background(tokens, out=stdout, err=stderr)
                 print(job_message)
             finally:
                 if stdout is not None:
@@ -549,6 +549,9 @@ def complete(args):
                     del command_to_custom_completer_dict[command_name]
 
 def jobs():
+    for job_number, info in background_job_to_info_dict.items():
+        if info["status"] == "Running":
+            return f"[{job_number}]+  {info["status"].ljust(24)}{' '.join(info['command'])}"
     return None
 
 
@@ -559,11 +562,11 @@ def check_should_run_background(command: str):
 def run_background(args: list[str], out: str | None, err: str | None):
     # todo: it should run the command using this shell instead of system shell
     # currently it just runs the command using the system shell
-    process = subprocess.Popen(args, stdout=out, stderr=err)
-    job_number = len(job_to_process_dict) + 1
-    job_to_process_dict[job_number] = process.pid
+    process = subprocess.Popen(args[:-1], stdout=out, stderr=err)
+    job_number = len(background_job_to_info_dict) + 1
+    background_job_to_info_dict[job_number] = {"pid": process.pid, "command": args, "status": "Running"}
 
-    return f"{[job_number]} {job_to_process_dict[job_number]}"
+    return f"{[job_number]} {background_job_to_info_dict[job_number]["pid"]}"
         
         
 
