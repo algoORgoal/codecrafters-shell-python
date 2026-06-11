@@ -549,10 +549,29 @@ def complete(args):
                     del command_to_custom_completer_dict[command_name]
 
 def jobs():
+    output = []
     for job_number, info in background_job_to_info_dict.items():
-        if info["status"] == "Running":
-            return f"[{job_number}]+  {info["status"].ljust(24)}{' '.join(info['command'])}"
-    return None
+        recency = calculate_job_recency(job_number)
+        
+        if recency == 0:
+            status_symbol = "+"
+        elif recency == 1:
+            status_symbol = "-"
+        else:
+            status_symbol = " "
+
+        output.append(f"[{job_number}]{status_symbol}  {info["status"].ljust(24)}{' '.join(info['command'])}")
+
+    if len(output) == 0:
+        return None
+    
+    return os.linesep.join(output)
+
+def calculate_job_recency(job_number):
+    return len(background_job_to_info_dict) - job_number 
+    
+
+
 
 
 def check_should_run_background(command: str):
