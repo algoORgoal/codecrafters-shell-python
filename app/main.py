@@ -557,6 +557,8 @@ def check_should_run_background(command: str):
     return tokens[-1] == '&'
 
 def run_background(args: list[str], out: str | None, err: str | None):
+    # todo: it should run the command using this shell instead of system shell
+    # currently it just runs the command using the system shell
     process = subprocess.Popen(args, stdout=out, stderr=err)
     job_number = len(job_to_process_dict) + 1
     job_to_process_dict[job_number] = process.pid
