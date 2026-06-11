@@ -26,12 +26,15 @@ SHELL_BUILTIN_DICT = {
     "PWD": 'pwd',
     "CD": 'cd',
     'COMPLETE': 'complete',
-    'JOBS': 'jobs'
+    'JOBS': 'jobs',
+    'DECLARE': 'declare',
 }
 
 EMPTY_STRING = ""
 
 command_to_custom_completer_dict: dict[str, str] = {}
+job_to_process_dict: dict[int, int] = {}
+
 
 def main():
     delims = readline.get_completer_delims()
@@ -39,7 +42,8 @@ def main():
     register_command_autocomplete()
 
     while True:
-        command_line = input("$ ")
+        command_line = input("$ ")            
+
         should_redirect_stdout = check_should_redirect_stdout(command_line)
         should_append_stdout = check_should_append_stdout(command_line)
         should_redirect_stderr = check_should_redirect_stderr(command_line)
@@ -49,6 +53,34 @@ def main():
         
         tokens = parse_command(command)
         command_name, args = tokens[0], tokens[1:]
+
+        should_run_background = check_should_run_background(command)
+
+        if should_run_background == True:
+            stdout = None
+            if should_redirect_stdout:
+                stdout = open(stdout_filename, "w")
+            elif should_append_stdout:
+                stdout = open(append_stdout_filename, "a")
+
+            stderr = None
+            if should_redirect_stderr:
+                stderr = open(stderr_filename, "w")
+            elif should_append_stderr:
+                stderr = open(append_stderr_filename, "a")
+
+            try:
+                job_message = run_background(tokens[:-1], out=stdout, err=stderr)
+                print(job_message)
+            finally:
+                if stdout is not None:
+                    stdout.close()
+                if stderr is not None:
+                    stderr.close() 
+            
+            continue
+            
+        
 
         
         if command_name == SHELL_BUILTIN_DICT['EXIT']:
@@ -267,10 +299,13 @@ def run_builtin_command(command_name, args, stdout=None, stderr=None):
             cd(args)
         
         elif command_name == SHELL_BUILTIN_DICT['COMPLETE']:
-            complete(args)
+            output = complete(args)
 
         elif command_name == SHELL_BUILTIN_DICT['JOBS']:
             output = jobs()
+
+        elif command_name == SHELL_BUILTIN_DICT['DECLARE']:
+            output = declare(args)
 
         if stdout is None and output is None:
             return
@@ -503,9 +538,9 @@ def complete(args):
                 command_name = queue.popleft()
                 if command_name in command_to_custom_completer_dict:
                     path = command_to_custom_completer_dict[command_name]
-                    print(f"complete -C '{path}' {command_name}")
+                    return f"complete -C '{path}' {command_name}"
                 else:
-                    print(f"complete: {command_name}: no completion specification")
+                    return f"complete: {command_name}: no completion specification"
 
             elif option == "-r":
                 command_name = queue.popleft()
@@ -515,8 +550,35 @@ def complete(args):
 
 def jobs():
     return None
+
+
+def check_should_run_background(command: str):
+    tokens = parse_command(command)
+    return tokens[-1] == '&'
+
+def run_background(args: list[str], out: str | None, err: str | None):
+    process = subprocess.Popen(args, stdout=out, stderr=err)
+    job_number = len(job_to_process_dict) + 1
+    job_to_process_dict[job_number] = process.pid
+
+    return f"{[job_number]} {job_to_process_dict[job_number]}"
+        
+        
+
+def declare(args):
+    queue = deque(args)
+
+    while len(queue) > 0:
+        arg = queue.popleft()
+        if arg.startswith("-") or arg.startswith("--"):
+            option = arg
+
+            if option == "-p":
+                variable_name = queue.popleft()
+                return f"declare: {variable_name}: not found"
     
-    
+        
+
 
 
 if __name__ == "__main__":
