@@ -139,6 +139,11 @@ def main():
 
         print(f"{command}: command not found")
 
+        job_message = jobs(should_show_updates_only=True)
+        if job_message is not None:
+            print(job_message)
+    
+
 def register_command_autocomplete():
     # mac에서는 라이선스 이슈로 gnu readline 구현체 대신 libedit readline을 사용한다.
     if 'libedit' in readline.__doc__:
@@ -550,7 +555,7 @@ def complete(args):
                 if command_name in command_to_custom_completer_dict:
                     del command_to_custom_completer_dict[command_name]
 
-def jobs():
+def jobs(should_show_updates_only: bool = False):
     output = []
     to_be_deleted = []
 
@@ -574,7 +579,10 @@ def jobs():
         else:
             command_str = ' '.join(info['command'])
 
-        output.append(f"[{job_number}]{status_symbol}  {info["status"].ljust(24)}{command_str}")
+        if should_show_updates_only == True and info["status"] != "Running":
+            output.append(f"[{job_number}]{status_symbol}  {info["status"].ljust(24)}{command_str}")
+        elif should_show_updates_only == False:
+            output.append(f"[{job_number}]{status_symbol}  {info["status"].ljust(24)}{command_str}")
 
         if info["status"] == "Done":
             to_be_deleted.append(job_number)
