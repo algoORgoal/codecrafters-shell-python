@@ -79,6 +79,10 @@ def main():
                     stdout.close()
                 if stderr is not None:
                     stderr.close() 
+
+            job_message = jobs(should_show_updates_only=True)
+            if job_message is not None:
+                print(job_message)
             
             continue
             
@@ -109,6 +113,10 @@ def main():
                 if stderr is not None:
                     stderr.close() 
             
+            job_message = jobs(should_show_updates_only=True)
+            if job_message is not None:
+                print(job_message)
+
             continue
         
             
@@ -133,6 +141,10 @@ def main():
                     stdout.close()
                 if stderr is not None:
                     stderr.close()
+            
+            job_message = jobs(should_show_updates_only=True)
+            if job_message is not None:
+                print(job_message)
 
             continue
 
