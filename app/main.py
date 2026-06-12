@@ -569,10 +569,10 @@ def jobs():
         else:
             should_print_ampersand = False
 
-        command_str = ' '.join(info['command'])
-
         if should_print_ampersand:
-            command_str += ' &'
+            command_str = ' '.join(info['command'] + ['&'])
+        else:
+            command_str = ' '.join(info['command'])
 
         output.append(f"[{job_number}]{status_symbol}  {info["status"].ljust(24)}{command_str}")
 
