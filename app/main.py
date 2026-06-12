@@ -588,7 +588,8 @@ def jobs():
     return os.linesep.join(output)
 
 def calculate_job_recency(job_number):
-    return len(background_job_to_info_dict) - job_number 
+    sorted_job_numbers = sorted([job_number for job_number in background_job_to_info_dict], reverse=True)
+    return sorted_job_numbers.index(job_number)
 
 
 
