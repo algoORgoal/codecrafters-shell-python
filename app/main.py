@@ -553,6 +553,7 @@ def complete(args):
 def jobs():
     output = []
     to_be_deleted = []
+
     for job_number, info in background_job_to_info_dict.items():
         recency = calculate_job_recency(job_number)
         
@@ -563,7 +564,17 @@ def jobs():
         else:
             status_symbol = " "
 
-        output.append(f"[{job_number}]{status_symbol}  {info["status"].ljust(24)}{' '.join(info['command'])}")
+        if info["status"] == "Running":
+            should_print_ampersand = True
+        else:
+            should_print_ampersand = False
+
+        command_str = ' '.join(info['command'])
+
+        if should_print_ampersand:
+            command_str += ' &'
+
+        output.append(f"[{job_number}]{status_symbol}  {info["status"].ljust(24)}{command_str}")
 
         if info["status"] == "Done":
             to_be_deleted.append(job_number)
@@ -578,7 +589,6 @@ def jobs():
 
 def calculate_job_recency(job_number):
     return len(background_job_to_info_dict) - job_number 
-    
 
 
 
@@ -592,7 +602,7 @@ def run_background(args: list[str], out: str | None, err: str | None):
     # currently it just runs the command using the system shell
     process = subprocess.Popen(args[:-1], stdout=out, stderr=err)
     job_number = len(background_job_to_info_dict) + 1
-    background_job_to_info_dict[job_number] = {"pid": process.pid, "command": args, "status": "Running"}
+    background_job_to_info_dict[job_number] = {"pid": process.pid, "command": args[:-1], "status": "Running"}
 
     return f"{[job_number]} {background_job_to_info_dict[job_number]["pid"]}"
         
