@@ -33,6 +33,7 @@ SHELL_BUILTIN_DICT = {
 EMPTY_STRING = ""
 
 command_to_custom_completer_dict: dict[str, str] = {}
+# todo
 background_job_to_info_dict: dict[int, dict[str, str | int]] = {}
 
 
@@ -607,6 +608,7 @@ def jobs(should_show_updates_only: bool = False):
     
     return os.linesep.join(output)
 
+# todo: 각 job마다 recency를 계산해서 n ** 2 log(n) 시간이 든다. 성능 개선 방안 찾기
 def calculate_job_recency(job_number):
     sorted_job_numbers = sorted([job_number for job_number in background_job_to_info_dict], reverse=True)
     return sorted_job_numbers.index(job_number)
@@ -622,7 +624,9 @@ def run_background(args: list[str], out: str | None, err: str | None):
     # todo: it should run the command using this shell instead of system shell
     # currently it just runs the command using the system shell
     process = subprocess.Popen(args[:-1], stdout=out, stderr=err)
-    job_number = len(background_job_to_info_dict) + 1
+    job_number = 1
+    while job_number in background_job_to_info_dict:
+        job_number += 1
     background_job_to_info_dict[job_number] = {"pid": process.pid, "command": args[:-1], "status": "Running"}
 
     return f"{[job_number]} {background_job_to_info_dict[job_number]["pid"]}"
@@ -718,3 +722,8 @@ if __name__ == "__main__":
 
 # 문제: 로컬에서 테스트할 때는 subprocess를 shell로 실행할 때 permission denied error가 발생한다.
 # 해결방법: shell=True 옵션을 넣어서 실행한다. 그러면 OS 직접 수행시 권한 막히는 거 해결 가능
+
+# 상황: background job을 생성했을 때, reaped된 job 중 가장 작은 job number를 재배정해야 한다.
+# 문제: dictionary에 들어있는 entry의 개수로 현재 job number를 계산하면 기존 entry에 덮어쓰기가 발생한다.
+# sleep 10 & => sleep 1000 & => 10초 뒤 reap => sleep 2000 &시 len(dict) + 1 = 2로 sleep 1000 &과 job number가 같아 덮어씌운다.
+# 해결방법: 1에서부터 시작하여 빈 entry를 완전 탐색한다.
