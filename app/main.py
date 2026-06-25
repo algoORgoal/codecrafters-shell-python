@@ -33,7 +33,7 @@ SHELL_BUILTIN_DICT = {
 EMPTY_STRING = ""
 
 command_to_custom_completer_dict: dict[str, str] = {}
-# todo
+# todo: reap할 때 pid가 주어져서, job to pid 구조로 두면 완전탐색을 해야 한다. pid -> job 구조로 바꾸면 성능을 개선하기
 background_job_to_info_dict: dict[int, dict[str, str | int]] = {}
 
 
@@ -45,7 +45,12 @@ def main():
     signal.signal(signal.SIGCHLD, reap)
 
     while True:
-        command_line = input("$ ")            
+        command_line = input("$ ")
+
+        should_pipeline = check_should_pipeline(command_line)
+
+        if should_pipeline == True:
+            pipeline(command_line)
 
         should_redirect_stdout = check_should_redirect_stdout(command_line)
         should_append_stdout = check_should_append_stdout(command_line)
@@ -348,6 +353,8 @@ def parse_stdout_and_stderr(command_line: str):
 
     return command, (stdout_filename, append_stdout_filename), (stderr_filename, append_stderr_filename)
 
+def check_should_pipeline(command):
+    return " | " in command
 
 def check_should_redirect_stdout(command):
     return " > " in command or " 1> " in command
@@ -664,8 +671,37 @@ def reap(signum, frame):
     except ChildProcessError: # no more child processes
         pass
             
+def pipeline(command):
+    first_command, second_command = command.split(" | ")
+    first_tokens = parse_command(first_command)
+    second_tokens = parse_command(second_command)
+    rfd, wfd = os.pipe()
 
+    first_pid = os.fork()
 
+    if (first_pid == 0):
+        os.dup2(wfd, 1)
+        os.close(rfd)
+        os.close(wfd)
+        os.execvp(first_tokens[0], first_tokens)
+
+    second_pid = os.fork()
+
+    if (second_pid == 0):
+        os.dup2(rfd, 0)
+        os.close(rfd)
+        os.close(wfd)
+        os.execvp(second_tokens[0], second_tokens)
+    
+    os.close(rfd)
+    os.close(wfd)
+
+    os.waitpid(first_pid, 0)
+    os.waitpid(second_pid, 0)
+    
+    
+
+    
 
     
         
@@ -727,3 +763,11 @@ if __name__ == "__main__":
 # 문제: dictionary에 들어있는 entry의 개수로 현재 job number를 계산하면 기존 entry에 덮어쓰기가 발생한다.
 # sleep 10 & => sleep 1000 & => 10초 뒤 reap => sleep 2000 &시 len(dict) + 1 = 2로 sleep 1000 &과 job number가 같아 덮어씌운다.
 # 해결방법: 1에서부터 시작하여 빈 entry를 완전 탐색한다.
+
+# 문제: pipe(), fork(), exec()을 이용해서 파이프라인 구현하기
+# 해결방법:
+# 1. pipe()를 사용해서 wfd, rfd를 생성하기
+# 2. 두 명령어를 실행하기 위한 전용 자식 프로세스인 fork() 실행하기
+#    yes | head -n 10과 같이 두 명령어가 동시에 실행될 필요가 있다. 
+#    첫번째 fork(): 첫번째 명령어 실행
+#    두번째 fork(): 두번째 명령어 실행
