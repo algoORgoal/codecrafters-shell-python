@@ -1,7 +1,4 @@
-import sys
-from typing import Callable
 import os
-import sys
 from os import environ
 from os import pathsep
 from os import access
@@ -9,7 +6,6 @@ import subprocess
 from collections import deque
 import re
 import readline
-import signal
 
 KEYBOARD_DICT = {
     'TAB': 'tab',
@@ -42,8 +38,6 @@ def main():
     readline.set_completer_delims(delims.replace("-", "").replace(os.sep, ""))
     register_command_autocomplete()
 
-    signal.signal(signal.SIGCHLD, reap)
-
     while True:
         command_line = input("$ ")
 
@@ -51,14 +45,16 @@ def main():
 
         if should_pipeline == True:
             pipeline(command_line)
+            continue
 
         should_redirect_stdout = check_should_redirect_stdout(command_line)
         should_append_stdout = check_should_append_stdout(command_line)
         should_redirect_stderr = check_should_redirect_stderr(command_line)
         should_append_stderr = check_should_append_stderr(command_line)
-        
-        command, (stdout_filename, append_stdout_filename), (stderr_filename, append_stderr_filename) = parse_stdout_and_stderr(command_line)
-        
+
+        command, (stdout_filename, append_stdout_filename), (stderr_filename,
+                                                             append_stderr_filename) = parse_stdout_and_stderr(command_line)
+
         tokens = parse_command(command)
         command_name, args = tokens[0], tokens[1:]
 
@@ -84,17 +80,14 @@ def main():
                 if stdout is not None:
                     stdout.close()
                 if stderr is not None:
-                    stderr.close() 
+                    stderr.close()
 
             job_message = jobs(should_show_updates_only=True)
             if job_message is not None:
                 print(job_message)
-            
-            continue
-            
-        
 
-        
+            continue
+
         if command_name == SHELL_BUILTIN_DICT['EXIT']:
             break
 
@@ -112,20 +105,20 @@ def main():
                 stderr = open(append_stderr_filename, "a")
 
             try:
-                run_builtin_command(command_name, args, stdout=stdout, stderr=stderr)
+                run_builtin_command(command_name, args,
+                                    stdout=stdout, stderr=stderr)
             finally:
                 if stdout is not None:
                     stdout.close()
                 if stderr is not None:
-                    stderr.close() 
-            
+                    stderr.close()
+
             job_message = jobs(should_show_updates_only=True)
             if job_message is not None:
                 print(job_message)
 
             continue
-        
-            
+
         executable_path = find_executable_path(command_name)
         if executable_path is not None:
             stdout = None
@@ -133,34 +126,34 @@ def main():
                 stdout = open(stdout_filename, "w")
             elif should_append_stdout:
                 stdout = open(append_stdout_filename, "a")
-                
+
             stderr = None
             if should_redirect_stderr:
                 stderr = open(stderr_filename, "w")
             elif should_append_stderr:
                 stderr = open(append_stderr_filename, "a")
-                
+
             try:
-                run_executable(command_name, args, stdout=stdout, stderr=stderr)
+                run_executable(command_name, args,
+                               stdout=stdout, stderr=stderr)
             finally:
                 if stdout is not None:
                     stdout.close()
                 if stderr is not None:
                     stderr.close()
-            
+
             job_message = jobs(should_show_updates_only=True)
             if job_message is not None:
                 print(job_message)
 
             continue
 
-
         print(f"{command}: command not found")
 
         job_message = jobs(should_show_updates_only=True)
         if job_message is not None:
             print(job_message)
-    
+
 
 def register_command_autocomplete():
     # mac에서는 라이선스 이슈로 gnu readline 구현체 대신 libedit readline을 사용한다.
@@ -170,13 +163,13 @@ def register_command_autocomplete():
         readline.parse_and_bind("tab: complete")
 
     readline.set_completer(master_completer)
-    
-        
+
+
 def master_completer(text: str, state: int):
     line = readline.get_line_buffer()
 
     tokens = parse_command(line)
-    command_name = tokens[0]    
+    command_name = tokens[0]
 
     # command completion
     # fixme argument가 command name과 같으면 command name과 현재 token이 같을 수 있음. 예를 들어 cd 'cd'
@@ -186,13 +179,14 @@ def master_completer(text: str, state: int):
     # custom completion
     if command_name in command_to_custom_completer_dict:
         return custom_completer(text, state)
-        
+
     # nested file completion
     if os.sep in text:
         return nested_file_completer(text, state)
-    
+
     # file completion at current working directory
     return working_directory_file_completer(text, state)
+
 
 def command_completer(text: str, state: int):
     matches = []
@@ -203,7 +197,7 @@ def command_completer(text: str, state: int):
             match_to_type_dict[command_name] = "COMMAND"
 
         PATH = os.environ.get("PATH")
-        
+
         if PATH is not None:
             directories = PATH.split(pathsep)
             for directory in directories:
@@ -213,8 +207,9 @@ def command_completer(text: str, state: int):
                     if name.startswith(text):
                         matches.append(name)
                         match_to_type_dict[name] = "COMMAND"
-    
+
     return format_match(matches, state, match_to_type_dict)
+
 
 def custom_completer(text: str, state: int):
     matches = []
@@ -227,29 +222,27 @@ def custom_completer(text: str, state: int):
     tokens = parse_command(line[:start_index])
     previous = tokens[-1] if len(tokens) > 0 else None
 
-
     command_name = tokens[0]
 
     env = create_env({
         "COMP_LINE": line,
         "COMP_POINT": end_index,
     })
-    
 
     try:
         path = command_to_custom_completer_dict[command_name]
-        output = subprocess.run([path, command_name, text, previous], capture_output=True, text=True, env=env)
+        output = subprocess.run(
+            [path, command_name, text, previous], capture_output=True, text=True, env=env)
     except OSError as e:
         print(e)
-    
+
     if output.stdout != EMPTY_STRING:
         for match in output.stdout.strip(os.linesep).split(os.linesep):
             matches.append(match)
             match_to_type_dict[match] = "CUSTOM"
-    
-    
 
     return format_match(matches, state, match_to_type_dict)
+
 
 def create_env(table):
     env = os.environ.copy()
@@ -257,29 +250,32 @@ def create_env(table):
         value = table[key]
         env[key] = str(value)
     return env
-    
-    
+
 
 def nested_file_completer(text: str, state: int):
     matches = []
     match_to_type_dict = {}
 
-    directory_path, prefix = os.sep.join(text.split(os.sep)[:-1]), text.split(os.sep)[-1]
-    
-    if directory_path.startswith(os.sep): # already absolute directory
+    directory_path, prefix = os.sep.join(
+        text.split(os.sep)[:-1]), text.split(os.sep)[-1]
+
+    if directory_path.startswith(os.sep):  # already absolute directory
         absolute_path = directory_path
-    else: # relative directory
+    else:  # relative directory
         path_segments = directory_path.strip(os.sep).split(os.sep)
-        absolute_path = resolve_to_absolute_path(os.getcwd(), deque(path_segments))
-    
+        absolute_path = resolve_to_absolute_path(
+            os.getcwd(), deque(path_segments))
+
     if os.path.isdir(absolute_path) == True:
         for name in os.listdir(absolute_path):
             if name.startswith(prefix):
                 match_path = f"{directory_path}{os.sep}{name}"
                 matches.append(match_path)
-                match_to_type_dict[match_path] = "DIRECTORY" if os.path.isdir(match_path) else "FILE"
-    
+                match_to_type_dict[match_path] = "DIRECTORY" if os.path.isdir(
+                    match_path) else "FILE"
+
     return format_match(matches, state, match_to_type_dict)
+
 
 def working_directory_file_completer(text: str, state: int):
     matches = []
@@ -290,9 +286,11 @@ def working_directory_file_completer(text: str, state: int):
         if name.startswith(text):
             matches.append(name)
             match_path = f"{working_directory}{os.sep}{name}"
-            match_to_type_dict[name] = "DIRECTORY" if os.path.isdir(match_path) else "FILE"
-    
+            match_to_type_dict[name] = "DIRECTORY" if os.path.isdir(
+                match_path) else "FILE"
+
     return format_match(matches, state, match_to_type_dict)
+
 
 def format_match(matches: list[str], state: int, match_to_type_dict: dict[str, str]):
     if len(matches) <= state:
@@ -302,27 +300,22 @@ def format_match(matches: list[str], state: int, match_to_type_dict: dict[str, s
     else:
         return f"{matches[state]} "
 
-    
-    
-
-
-
 
 def run_builtin_command(command_name, args, stdout=None, stderr=None):
     try:
         output = None
         if command_name == SHELL_BUILTIN_DICT['ECHO']:
             output = echo(args)
-            
+
         elif command_name == SHELL_BUILTIN_DICT['TYPE']:
             output = type(args, set(SHELL_BUILTIN_DICT.values()))
 
         elif command_name == SHELL_BUILTIN_DICT['PWD']:
-            output = pwd(args)  
+            output = pwd(args)
 
         elif command_name == SHELL_BUILTIN_DICT['CD']:
             cd(args)
-        
+
         elif command_name == SHELL_BUILTIN_DICT['COMPLETE']:
             output = complete(args)
 
@@ -338,12 +331,12 @@ def run_builtin_command(command_name, args, stdout=None, stderr=None):
         if output is None:
             print("", file=stdout)
             return
-        
+
         print(output, file=stdout)
-        
 
     except Exception as e:
         print(e, file=stderr)
+
 
 def parse_stdout_and_stderr(command_line: str):
     command_line, stdout_filename = parse_redirection_stdout(command_line)
@@ -353,21 +346,25 @@ def parse_stdout_and_stderr(command_line: str):
 
     return command, (stdout_filename, append_stdout_filename), (stderr_filename, append_stderr_filename)
 
+
 def check_should_pipeline(command):
     return " | " in command
+
 
 def check_should_redirect_stdout(command):
     return " > " in command or " 1> " in command
 
+
 def check_should_append_stdout(command):
     return " >> " in command or " 1>> " in command
+
 
 def check_should_redirect_stderr(command):
     return " 2> " in command
 
+
 def check_should_append_stderr(command):
     return " 2>> " in command
-
 
 
 def parse_redirection_stdout(command: str):
@@ -376,15 +373,15 @@ def parse_redirection_stdout(command: str):
         filename = re.sub(r'>[\s]+', '', command[match.start():match.end()])
         command = command[:match.start()] + command[match.end():]
         return command, filename
-    
+
     if ' 1> ' in command:
         match = re.search(r'1>[\s]+[\S]+', command)
         filename = re.sub(r'1>[\s]+', '', command[match.start():match.end()])
         command = command[:match.start()] + command[match.end():]
         return command, filename
-        
 
     return command, None
+
 
 def parse_append_stdout(command: str):
     if ' >> ' in command:
@@ -392,24 +389,25 @@ def parse_append_stdout(command: str):
         filename = re.sub(r'>>[\s]+', '', command[match.start():match.end()])
         command = command[:match.start()] + command[match.end():]
         return command, filename
-    
+
     if ' 1>> ' in command:
         match = re.search(r'1>>[\s]+[\S]+', command)
         filename = re.sub(r'1>>[\s]+', '', command[match.start():match.end()])
         command = command[:match.start()] + command[match.end():]
         return command, filename
-        
 
     return command, None
-    
+
+
 def parse_redirection_stderr(command: str):
     if ' 2> ' in command:
         match = re.search(r'2>[\s]+[\S]+', command)
         filename = re.sub(r'2>[\s]+', '', command[match.start():match.end()])
         command = command[:match.start()] + command[match.end():]
         return command, filename
-    
+
     return command, None
+
 
 def parse_append_stderr(command: str):
     if ' 2>> ' in command:
@@ -417,14 +415,12 @@ def parse_append_stderr(command: str):
         filename = re.sub(r'2>>[\s]+', '', command[match.start():match.end()])
         command = command[:match.start()] + command[match.end():]
         return command, filename
-    
-    return command, None
 
+    return command, None
 
 
 def echo(args):
     return ' '.join(args)
-
 
 
 def parse_command(string: str) -> list[str]:
@@ -437,7 +433,7 @@ def parse_command(string: str) -> list[str]:
     for char in string:
         if should_escape == True:
             token += char
-            should_escape = False     
+            should_escape = False
 
         elif in_single_quote == True:
             if char == "'":
@@ -464,12 +460,12 @@ def parse_command(string: str) -> list[str]:
                 should_escape = True
             else:
                 token += char
-    
-    
+
     if token != EMPTY_STRING:
         tokens.append(token)
 
     return tokens
+
 
 def find_executable_path(command_name):
     PATH = environ.get("PATH")
@@ -497,7 +493,7 @@ def type(args, built_ins):
     return f"{text}: not found"
 
 
-def run_executable(command_name, args, stdout = None, stderr=None):
+def run_executable(command_name, args, stdout=None, stderr=None):
     subprocess.run([command_name] + args, stdout=stdout, stderr=stderr)
 
 
@@ -507,24 +503,26 @@ def pwd(args):
 
 def cd(args):
     directory_path: str = args[0]
-    
-    if directory_path[0] == '/': # already absolute directory
+
+    if directory_path[0] == '/':  # already absolute directory
         absolute_path = directory_path
-    else: # relative directory
+    else:  # relative directory
         path_segments = directory_path.strip(pathsep).split(os.sep)
-        absolute_path = resolve_to_absolute_path(os.getcwd(), deque(path_segments))
+        absolute_path = resolve_to_absolute_path(
+            os.getcwd(), deque(path_segments))
 
     if os.path.isdir(absolute_path) == False:
         print(f"cd: {directory_path}: No such file or directory")
         return
-        
+
     os.chdir(absolute_path)
+
 
 def resolve_to_absolute_path(current, path_segments):
     if len(path_segments) == 0:
         return current
 
-    path_segment = path_segments.popleft() 
+    path_segment = path_segments.popleft()
 
     DIRECTORY_ALIAS = {
         'WORKING': '.',
@@ -545,6 +543,7 @@ def resolve_to_absolute_path(current, path_segments):
 
     return resolve_to_absolute_path(absolute_path, path_segments)
 
+
 def complete(args):
     queue = deque(args)
 
@@ -552,7 +551,7 @@ def complete(args):
         arg = queue.popleft()
         if arg.startswith("-") or arg.startswith("--"):
             option = arg
-        
+
             if option == "-C":
                 # todo handle relative path
                 # todo check if the file exists and is executable
@@ -560,7 +559,6 @@ def complete(args):
                 command_name = queue.popleft()
                 command_to_custom_completer_dict[command_name] = path_to_completer
 
-            
             elif option == "-p":
                 command_name = queue.popleft()
                 if command_name in command_to_custom_completer_dict:
@@ -575,13 +573,16 @@ def complete(args):
                 if command_name in command_to_custom_completer_dict:
                     del command_to_custom_completer_dict[command_name]
 
+
 def jobs(should_show_updates_only: bool = False):
+    update_jobs()
+
     output = []
     to_be_deleted = []
 
     for job_number, info in background_job_to_info_dict.items():
         recency = calculate_job_recency(job_number)
-        
+
         if recency == 0:
             status_symbol = "+"
         elif recency == 1:
@@ -600,9 +601,11 @@ def jobs(should_show_updates_only: bool = False):
             command_str = ' '.join(info['command'])
 
         if should_show_updates_only == True and info["status"] != "Running":
-            output.append(f"[{job_number}]{status_symbol}  {info["status"].ljust(24)}{command_str}")
+            output.append(
+                f"[{job_number}]{status_symbol}  {info["status"].ljust(24)}{command_str}")
         elif should_show_updates_only == False:
-            output.append(f"[{job_number}]{status_symbol}  {info["status"].ljust(24)}{command_str}")
+            output.append(
+                f"[{job_number}]{status_symbol}  {info["status"].ljust(24)}{command_str}")
 
         if info["status"] == "Done":
             to_be_deleted.append(job_number)
@@ -612,20 +615,22 @@ def jobs(should_show_updates_only: bool = False):
 
     if len(output) == 0:
         return None
-    
+
     return os.linesep.join(output)
 
 # todo: 각 job마다 recency를 계산해서 n ** 2 log(n) 시간이 든다. 성능 개선 방안 찾기
+
+
 def calculate_job_recency(job_number):
-    sorted_job_numbers = sorted([job_number for job_number in background_job_to_info_dict], reverse=True)
+    sorted_job_numbers = sorted(
+        [job_number for job_number in background_job_to_info_dict], reverse=True)
     return sorted_job_numbers.index(job_number)
-
-
 
 
 def check_should_run_background(command: str):
     tokens = parse_command(command)
     return tokens[-1] == '&'
+
 
 def run_background(args: list[str], out: str | None, err: str | None):
     # todo: it should run the command using this shell instead of system shell
@@ -634,11 +639,11 @@ def run_background(args: list[str], out: str | None, err: str | None):
     job_number = 1
     while job_number in background_job_to_info_dict:
         job_number += 1
-    background_job_to_info_dict[job_number] = {"pid": process.pid, "command": args[:-1], "status": "Running"}
+    background_job_to_info_dict[job_number] = {
+        "pid": process.pid, "command": args[:-1], "status": "Running"}
 
     return f"{[job_number]} {background_job_to_info_dict[job_number]["pid"]}"
-        
-        
+
 
 def declare(args):
     queue = deque(args)
@@ -652,29 +657,32 @@ def declare(args):
                 variable_name = queue.popleft()
                 return f"declare: {variable_name}: not found"
 
-def reap(signum, frame):
+
+def update_jobs():
     ANY_CHILD_PROCESS = -1
     NO_WAIT = os.WNOHANG
 
-    try:
-        pid, status = os.waitpid(ANY_CHILD_PROCESS, NO_WAIT)
-        
-        # no terminated child processes
-        if pid == 0:
-            return
-        
-        for job_number, info in background_job_to_info_dict.items():
-            if info["pid"] == pid:
-                info["status"] = "Done"
+    while True:
+        try:
+            pid, status = os.waitpid(ANY_CHILD_PROCESS, NO_WAIT)
+
+            if pid == 0:
                 break
-    
-    except ChildProcessError: # no more child processes
-        pass
-            
+
+            for info in background_job_to_info_dict.values():
+                if info["pid"] == pid:
+                    info["status"] = "Done"
+                    break
+
+        except ChildProcessError:
+            break
+
+
 def pipeline(command):
     first_command, second_command = command.split(" | ")
     first_tokens = parse_command(first_command)
     second_tokens = parse_command(second_command)
+
     rfd, wfd = os.pipe()
 
     first_pid = os.fork()
@@ -692,20 +700,12 @@ def pipeline(command):
         os.close(rfd)
         os.close(wfd)
         os.execvp(second_tokens[0], second_tokens)
-    
+
     os.close(rfd)
     os.close(wfd)
 
     os.waitpid(first_pid, 0)
     os.waitpid(second_pid, 0)
-    
-    
-
-    
-
-    
-        
-
 
 
 if __name__ == "__main__":
@@ -737,7 +737,7 @@ if __name__ == "__main__":
 # 해결방법: 조건문으로 분기 처리
 
 # 문졔: absolute directory를 결과에 사용하면 상대경로가 절대경로로 변환된다.
-# 해결방법: 
+# 해결방법:
 #   입력으로 주어지는 디렉토리를 결과물에 사용한다.
 #   이 때, 경로 중 디렉토리 부분만 추출해야 하고, 이 때 자연스럽게 filename prefix를 구할 수 있다.
 #   os.sep을 사용하여 운영체제와 독립적으로 실행한다.
@@ -747,7 +747,7 @@ if __name__ == "__main__":
 #          출력 형식을 결정하는 로직과 match 결과를 반환하는 로직을 분리한다.
 
 # 문제: custom completer를 만들어야 한다. linebreak를 기준으로 끊어서 반환한 값이 후보자가 된다.
-# 해결방법: 처음과 끝에 있는 linebreak를 제거하고 linebreak 기준으로 split한 것을 matches에 넣기. 운영체제 독립적으로 
+# 해결방법: 처음과 끝에 있는 linebreak를 제거하고 linebreak 기준으로 split한 것을 matches에 넣기. 운영체제 독립적으로
 #         작동하도록 os.linesep를 사용한다.
 
 # 문제: sys.executable로 설명하면 python script만 completer로 실행 가능하다.
@@ -768,6 +768,6 @@ if __name__ == "__main__":
 # 해결방법:
 # 1. pipe()를 사용해서 wfd, rfd를 생성하기
 # 2. 두 명령어를 실행하기 위한 전용 자식 프로세스인 fork() 실행하기
-#    yes | head -n 10과 같이 두 명령어가 동시에 실행될 필요가 있다. 
+#    yes | head -n 10과 같이 두 명령어가 동시에 실행될 필요가 있다.
 #    첫번째 fork(): 첫번째 명령어 실행
 #    두번째 fork(): 두번째 명령어 실행
