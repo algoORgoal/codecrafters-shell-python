@@ -688,6 +688,12 @@ def pipeline(command):
     first_pid = os.fork()
 
     if (first_pid == 0):
+        if first_tokens[0] in SHELL_BUILTIN_DICT.values():
+            with os.fdopen(wfd, "w") as wf:
+                run_builtin_command(
+                    first_tokens[0], first_tokens[1:], stdout=wf)
+            os._exit(0)
+
         os.dup2(wfd, 1)
         os.close(rfd)
         os.close(wfd)
@@ -696,6 +702,10 @@ def pipeline(command):
     second_pid = os.fork()
 
     if (second_pid == 0):
+        if second_tokens[0] in SHELL_BUILTIN_DICT.values():
+            run_builtin_command(second_tokens[0], second_tokens[1:])
+            os._exit(0)
+
         os.dup2(rfd, 0)
         os.close(rfd)
         os.close(wfd)
